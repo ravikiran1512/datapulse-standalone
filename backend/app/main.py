@@ -205,6 +205,7 @@ class IngestCandidate(BaseModel):
     work_model:str|None=None
     job_level:str|None=None
     employment_type:str|None=None
+    structured_experience_years:str|None=None
 
 
 class IngestBatch(BaseModel):
@@ -237,7 +238,8 @@ async def ingest(batch:IngestBatch,request:Request):
                    country_code=item.country_code,remote_eligible_germany=item.remote_eligible_germany,
                    remote_eligible_india=item.remote_eligible_india,
                    work_model=item.work_model,job_level=item.job_level,
-                   employment_type=item.employment_type,tech_stack=item.tech_stack)
+                   employment_type=item.employment_type,structured_experience_years=item.structured_experience_years,
+                   tech_stack=item.tech_stack)
         normalized,why=normalize_for_profiles(raw)
         if normalized is None:
             result['rejected'].append({'source_id':item.source_id,'reason':why});continue
