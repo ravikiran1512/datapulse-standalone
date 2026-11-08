@@ -116,3 +116,34 @@ Ingested job records include `country_code` (`DE` / `IN`), nullable `min_experie
 **Existing database upgrade:** Apply `sql/migrations/20261108_add_job_personas.sql` to the dedicated DataPulse Supabase database. It is idempotent and does not delete data or bookmarks. The full `sql/schema.sql` includes the same columns for brand-new installations.
 
 **Coverage:** The current configured employer feeds are not a guarantee of nationwide India SAP Basis coverage. Add verified employer board identifiers (especially Indian employers) separately; no candidate is displayed as real without a legitimate ATS posting. Experience parsing is conservative and may require manual review when language varies.
+
+## SAP Basis registry expansion (India + Germany, November 2026)
+
+The repository now supports the three profile presets for a verified subset of public
+career feeds: SAP Basis experienced (3–6 years, including qualifying Senior titles),
+SAP Basis student/entry (Germany, experience waived), and Data Engineering junior
+(Germany, at most 2 years). These are distinct policy filters.
+
+### Read-only live scan
+
+```bash
+cd backend
+python -m app.collectors.run_ingestion --expand-registry \
+  --target-profiles sap_basis_5y,sap_basis_student,data_eng_junior --dry-run=true
+```
+
+The default and requested command **never inserts records**. The runner requires
+both `--dry-run=false` and `--apply`, plus API credentials, to write jobs. The
+existing daily read-only scan still checks the 11 legacy boards until a separate
+load/reliability review.
+
+The list of verified ATS feeds and separate discovery-only employer career portals
+lives in [`config/verified-boards.json`](config/verified-boards.json). A public
+employer homepage is **not** an active ATS feed. SAP SuccessFactors XML feeds are
+employer-specific and must be provided/approved; no generic endpoint is assumed.
+Workday job search uses a career site's JSON requests (not a documented Workday
+public job board API), with public-site robots and polite rate limits.
+
+The synthetic/SQLite integration tests do **not** prove live vacancies or actual
+PostgreSQL migration results. See [`docs/SAP_BASIS_REGISTRY_EXPANSION.md`](docs/SAP_BASIS_REGISTRY_EXPANSION.md)
+for source status, local checks, and limitations.
