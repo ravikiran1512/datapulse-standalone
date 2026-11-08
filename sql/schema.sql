@@ -20,6 +20,12 @@ CREATE TABLE IF NOT EXISTS datapulse.jobs (
   company_name text NOT NULL,
   location text NOT NULL,
   region text,
+  country_code varchar(2),
+  country varchar(50),
+  min_experience_years integer,
+  max_experience_years integer,
+  experience_evidence text,
+  persona_tags text[] NOT NULL DEFAULT '{}'::text[],
   normalized_company_name text NOT NULL,
   normalized_job_title text NOT NULL,
   normalized_location text NOT NULL,
@@ -46,6 +52,11 @@ CREATE TABLE IF NOT EXISTS datapulse.jobs (
   last_verified_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT ck_datapulse_experience_bounds CHECK (
+    (min_experience_years IS NULL OR min_experience_years BETWEEN 0 AND 40) AND
+    (max_experience_years IS NULL OR max_experience_years BETWEEN 0 AND 40) AND
+    (min_experience_years IS NULL OR max_experience_years IS NULL OR min_experience_years<=max_experience_years)
+  ),
   CONSTRAINT uq_datapulse_job_identity UNIQUE (normalized_company_name,normalized_job_title,normalized_location)
 );
 -- Preserve all sightings, including an aggregator URL replaced as primary by the ATS URL.
@@ -88,6 +99,9 @@ CREATE TABLE IF NOT EXISTS datapulse.ingestion_runs (
   rejected jsonb NOT NULL DEFAULT '{}'::jsonb,
   failures jsonb NOT NULL DEFAULT '{}'::jsonb
 );
+CREATE INDEX IF NOT EXISTS idx_jobs_country_experience ON datapulse.jobs (country_code,min_experience_years,max_experience_years);
+CREATE INDEX IF NOT EXISTS idx_jobs_persona_tags ON datapulse.jobs USING GIN (persona_tags);
+CREATE INDEX IF NOT EXISTS idx_jobs_country_domain ON datapulse.jobs (country_code,domain_category);
 CREATE INDEX IF NOT EXISTS idx_jobs_created ON datapulse.jobs (created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_jobs_posted ON datapulse.jobs (date_posted DESC NULLS LAST);
 CREATE INDEX IF NOT EXISTS idx_jobs_region ON datapulse.jobs (region);
