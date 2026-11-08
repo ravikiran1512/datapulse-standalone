@@ -172,7 +172,8 @@ def normalize_job(raw: RawJob, criteria: dict) -> tuple[Job | None, str]:
     title=clean(raw.job_title)
     if not ROLE.search(title): return None,"not_target_engineering_title"
     if EXCLUDE_ROLE.search(title):return None,"hard_excluded_role"
-    if filters.get("exclude_senior",True) and (SENIOR.search(title) or SENIOR_YEARS_REQUIRED.search(raw.description)):\n        return None,"above_target_level"
+    if filters.get("exclude_senior",True) and (SENIOR.search(title) or SENIOR_YEARS_REQUIRED.search(raw.description)):
+        return None,"above_target_level"
     for word in filters.get("exclude_keywords",[]):
         if re.search(r"(?<!\w)"+re.escape(word)+r"(?!\w)",title,re.I): return None,"excluded_title_keyword"
     loc=normalize_location(raw.location,raw.country_code,remote_eligible_germany=raw.remote_eligible_germany)
