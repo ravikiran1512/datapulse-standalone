@@ -181,13 +181,15 @@ def strict_partner_profiles(raw: RawJob) -> tuple[tuple[str, ...], str, dict]:
         return (), "data_engineering_non_germany", details
     if SENIOR.search(title) or re.search(r"\b(?:lead|manager)\b", title, re.I):
         return (), "senior_data_engineering", details
-    if exp.minimum is None or exp.maximum is None:
+    if exp.minimum is not None and exp.minimum >= 3:
+        return (), "de_requires_3_plus_years", details
+    if exp.maximum is not None and exp.maximum >= 3:
+        return (), "de_requires_3_plus_years", details
+    if exp.minimum is None:
         # Student/intern contracts are the only no-years exception.
-        if STUDENT_ROLE.search(contract) and (exp.minimum is None):
+        if STUDENT_ROLE.search(contract):
             return (DE_JUNIOR,), "accepted_student_no_required_years", details
         return (), "de_experience_unverified", details
-    if exp.minimum >= 3 or exp.maximum >= 3:
-        return (), "de_requires_3_plus_years", details
     # Reuse existing language, tech relevance, role fit and Germany checks.
     normalized, reason = normalize_for_profiles(raw)
     if normalized is None or DE_JUNIOR not in normalized.persona_tags:
