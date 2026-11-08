@@ -13,12 +13,12 @@ import json
 import os
 from collections import Counter
 from pathlib import Path
-from typing import Any
+from typing import Any, Awaitable, Callable
 from urllib.parse import urlsplit
 
 import httpx
 from datapulse_ingestion.connectors import CONNECTORS, Fetcher
-from datapulse_ingestion.models import RawJob
+from datapulse_ingestion.models import RawJob, Job
 from datapulse_ingestion.profiles import (normalize_for_profiles, PERSONA_IDS,
     SAP_EXPERIENCED, SAP_STUDENT, DE_JUNIOR)
 from app.link_checker import inspect_link, safe_ats_url
@@ -134,11 +134,14 @@ async def collect(source_file:Path,*,source:str|None=None,board_filter:str|None=
                   dry_run:bool=True,target:str='api',api_base_url:str|None=None,max_boards:int=60,
                   fixture_file:Path|None=None,expand_registry:bool=False,
                   target_profiles:str|None=None,board_offset:int=0,
-                  approved_only:bool=False,verify_links:bool=False)->dict:
+                  approved_only:bool=False,verify_links:bool=False,
+                  persist:Callable[[list[tuple[RawJob,Job]]],Awaitable[dict]]|None=None)->dict:
     if not dry_run and not approved_only:
         raise ValueError('Production writes require the explicit approved-source allowlist')
     if not dry_run and fixture_file:
         raise ValueError('Production writes cannot use synthetic fixture data')
+    if dry_run and persist is not None:
+        raise ValueError('Read-only scans cannot receive a database writer')
     verify_links=verify_links or not dry_run
     selected=resolve_profiles(target_profiles)
     boards=eligible_boards(source_file,source,board_filter,approved_only=approved_only)
@@ -159,6 +162,7 @@ async def collect(source_file:Path,*,source:str|None=None,board_filter:str|None=
              'server_rejected':0,'links_verified':0,'sample_jobs':[]}
     if fixture_file and len(boards)!=1:raise ValueError('Fixture mode needs exactly one selected board')
     accepted=[]
+    accepted_jobs:list[tuple[RawJob,Job]]=[]
     seen_sources=set()
     link_client=None
     for board in boards:
@@ -215,6 +219,7 @@ async def collect(source_file:Path,*,source:str|None=None,board_filter:str|None=
                 if approved_only:
                     seen_sources.add(raw.source_key)
                 accepted.append(to_payload(raw))
+                accepted_jobs.append((raw,job))
                 board_result['accepted']+=1
                 for persona in matched:
                     stats=summary['per_profile'][persona]
@@ -236,9 +241,14 @@ async def collect(source_file:Path,*,source:str|None=None,board_filter:str|None=
         await link_client.aclose()
     summary['accepted']=len(accepted)
     if not dry_run and summary['accepted']:
-        if target!='api':raise ValueError('Production writes require authenticated API target')
-        if not api_base_url:raise ValueError('Set API_BASE_URL')
-        result=await push_batches(accepted,api_base_url,os.getenv('INGEST_TOKEN',''))
+        if persist is not None:
+            # Only the authenticated Render scheduler supplies this private,
+            # server-side writer. The standalone worker uses the API token.
+            result=await persist(accepted_jobs)
+        else:
+            if target!='api':raise ValueError('Production writes require authenticated API target')
+            if not api_base_url:raise ValueError('Set API_BASE_URL')
+            result=await push_batches(accepted,api_base_url,os.getenv('INGEST_TOKEN',''))
         summary.update(result)
     return summary
 

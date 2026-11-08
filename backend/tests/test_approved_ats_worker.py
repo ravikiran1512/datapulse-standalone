@@ -129,3 +129,22 @@ async def test_uncertain_or_closed_link_never_reaches_database(monkeypatch,tmp_p
     result=await worker.collect(path,dry_run=False,approved_only=True,api_base_url="https://api.example.org")
     assert result['accepted']==0 and result['rejected']=={'link_uncertain':1}
     assert result['inserted']==0
+
+
+@pytest.mark.asyncio
+async def test_internal_server_persist_is_allowed_only_after_link_check(monkeypatch,tmp_path):
+    path=write_registry(tmp_path,dow_board())
+    monkeypatch.setitem(worker.CONNECTORS,'workday',lambda board,fetcher:[dow_job()])
+    async def live(url,client):
+        return LinkResult('live','Official page reachable')
+    async def unexpected_api_push(*args,**kwargs):
+        pytest.fail('Render-side writer must not call an external ingestion API')
+    persisted=[]
+    async def internal_writer(records):
+        persisted.extend(records)
+        return {'inserted':0,'updated':len(records)}
+    monkeypatch.setattr(worker,'inspect_link',live)
+    monkeypatch.setattr(worker,'push_batches',unexpected_api_push)
+    result=await worker.collect(path,dry_run=False,approved_only=True,persist=internal_writer)
+    assert result['accepted']==1 and result['updated']==1
+    assert len(persisted)==1 and persisted[0][0].company_name=='Dow'

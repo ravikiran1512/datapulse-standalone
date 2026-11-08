@@ -1,7 +1,7 @@
-"""Authenticated, asynchronous, read-only ATS scan triggered by the existing Vercel Hobby Cron.
+"""Authenticated Vercel Cron trigger: bounded approved imports + read-only discovery.
 
-Deliberately has no job-writing path: promotion to production ingestion requires
-reviewing real live scans and a separate explicit code change.
+The approved importer is server-side, opt-in, and always checks official links.
+The broader partner/source discovery remains read-only.
 """
 from __future__ import annotations
 
@@ -18,12 +18,23 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 
 from .collectors.run_ingestion import ROOT, collect, eligible_boards
 from .link_checker import check_stale_jobs
-from .verified_auto_import import import_approved_jobs
+from .db import upsert_job
 from .collectors.discover_partners import discover
 
 router = APIRouter(prefix="/api/v1/internal", tags=["internal"])
 log = logging.getLogger("datapulse.scheduled_scan")
 _lock = asyncio.Lock()
+
+
+async def persist_approved_batch(pool,records):
+    """Persist only prefiltered, live-link-verified candidates on this server."""
+    result={'inserted':0,'updated':0}
+    for raw,normalized in records:
+        action,_=await upsert_job(pool,normalized,raw.description)
+        if action not in ('inserted','updated'):
+            raise RuntimeError('Unexpected approved job upsert result')
+        result[action]+=1
+    return result
 
 
 def require_scan_token(authorization: Annotated[str | None, Header()] = None) -> None:
@@ -35,24 +46,40 @@ def require_scan_token(authorization: Annotated[str | None, Header()] = None) ->
 
 async def _execute_scan(pool, run_id) -> None:
     try:
-        pilot_error=None
+        approved_error=None
+        registry=ROOT / "config" / "verified-boards.json"
         if os.getenv('ENABLE_VERIFIED_AUTO_IMPORT','false').lower()=='true':
-            # Pilot is explicitly opt-in; mark run as not dry-run even if
-            # no eligible vacancy is found or the pilot later fails.
-            await pool.execute(
-                'UPDATE datapulse.ingestion_runs SET dry_run=FALSE WHERE id=$1',run_id)
+            # Record production imports separately from the broad read-only
+            # scan. The previous pilot conflated their accepted-job totals.
+            import_run_id=await pool.fetchval(
+                'INSERT INTO datapulse.ingestion_runs(dry_run) VALUES(FALSE) RETURNING id')
             try:
-                imported=await import_approved_jobs(pool)
+                async def save(records):
+                    return await persist_approved_batch(pool,records)
+                imported=await collect(registry,dry_run=False,approved_only=True,
+                                       persist=save)
+                if imported['accepted']!=imported['inserted']+imported['updated']:
+                    raise RuntimeError('Approved import did not persist every eligible job')
                 await pool.execute(
                     '''UPDATE datapulse.ingestion_runs
-                       SET inserted=$2, updated=$3, accepted=GREATEST(accepted,$4)
+                       SET completed_at=now(),sources_attempted=$2,
+                           sources_succeeded=$3,jobs_seen=$4,accepted=$5,
+                           inserted=$6,updated=$7,rejected=$8::jsonb,
+                           failures=$9::jsonb
                        WHERE id=$1''',
-                    run_id,imported['inserted'],imported['updated'],imported['eligible'])
-                log.info('Verified Dow pilot imported: %s',imported)
+                    import_run_id,imported['boards_attempted'],imported['boards_succeeded'],
+                    imported['jobs_seen'],imported['accepted'],imported['inserted'],
+                    imported['updated'],json.dumps(imported['rejected']),json.dumps(imported['errors']))
+                if imported['errors'] or imported['boards_succeeded']==0:
+                    approved_error='ApprovedSourceFailure'
+                    log.error('Approved ATS import had source errors: %s',imported['errors'])
+                log.info('Approved ATS sources imported: %s',imported)
             except Exception as exc:
-                pilot_error=type(exc).__name__
-                log.exception('Verified pilot failed; other sources remain read-only')
-        registry=ROOT / "config" / "verified-boards.json"
+                approved_error=type(exc).__name__
+                await pool.execute('''UPDATE datapulse.ingestion_runs
+                    SET completed_at=now(),failures=$2::jsonb WHERE id=$1''',
+                    import_run_id,json.dumps({'approved_import':approved_error}))
+                log.exception('Approved ATS import failed; other sources remain read-only')
         board_count=len(eligible_boards(registry))
         board_offset=(date.today().toordinal()*11)%board_count if board_count else 0
         result = await collect(
@@ -62,10 +89,9 @@ async def _execute_scan(pool, run_id) -> None:
             board_offset=board_offset,
             expand_registry=True,
         )
-        # The broad registry scan remains read-only. If pilot ingestion was
-        # enabled, only the separately approved employer has a write path.
-        if pilot_error:
-            result['errors']['approved_import']=pilot_error
+        # Non-approved registry sources never acquire a write path.
+        if approved_error:
+            result['errors']['approved_import']=approved_error
         await pool.execute(
             """UPDATE datapulse.ingestion_runs
                 SET completed_at=now(), sources_attempted=$2, sources_succeeded=$3,
@@ -98,12 +124,12 @@ async def _execute_scan(pool, run_id) -> None:
             except Exception:
                 log.exception('Partner discovery unavailable; ingestion unaffected')
         log.info(
-            "ATS read-only scan finished: attempted=%d, succeeded=%d, seen=%d, eligible=%d, failures=%d",
+            "ATS discovery scan finished: attempted=%d, succeeded=%d, seen=%d, eligible=%d, failures=%d",
             result["boards_attempted"], result["boards_succeeded"],
             result["jobs_seen"], result["accepted"], len(result["errors"]),
         )
     except Exception as exc:
-        log.exception("ATS read-only scan failed: %s", type(exc).__name__)
+        log.exception("ATS scheduled scan failed: %s", type(exc).__name__)
         try:
             await pool.execute(
                 """UPDATE datapulse.ingestion_runs SET completed_at=now(),
@@ -131,4 +157,6 @@ async def start_readonly_scan(request: Request):
         task = asyncio.create_task(_execute_scan(pool, run_id), name=f"datapulse-dry-run-{run_id}")
         request.app.state.readonly_scan_task = task
 
-    return {"status": "accepted", "dry_run": True, "run_id": str(run_id)}
+    return {"status": "accepted", "dry_run": True,
+            "automatic_approved_import": os.getenv('ENABLE_VERIFIED_AUTO_IMPORT','false').lower()=='true',
+            "run_id": str(run_id)}

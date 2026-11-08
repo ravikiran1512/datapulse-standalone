@@ -1,19 +1,21 @@
 # DataPulse approved-source automatic ingestion
 
-Two distinct schedules are configured for 05:17 UTC daily:
+There is exactly **one production writer**:
 
-1. **GitHub Actions** (`.github/workflows/ingest_jobs.yml`) is the intended
-   primary importer. It tests the backend and invokes the Python collector with
-   `--approved-only --dry-run=false --apply`. It writes only through the
-   authenticated FastAPI `/api/v1/internal/ingest` endpoint.
-2. **Vercel Cron** (`frontend/vercel.json`) triggers the Render API's scan and
-   stale-link maintenance. The older Dow-only importer is still available
-   behind `ENABLE_VERIFIED_AUTO_IMPORT=true` as a fallback until the first
-   GitHub Actions production run has been observed and verified. Once proven,
-   set `ENABLE_VERIFIED_AUTO_IMPORT=false` to leave only one production writer.
+1. **Vercel Cron** (`frontend/vercel.json`) targets 05:17 UTC daily and triggers
+   the authenticated Render API `/api/v1/internal/scan`. With server-side
+   `ENABLE_VERIFIED_AUTO_IMPORT=true`, the API imports only the approved ATS
+   sources, logs their production run, and then performs broad *read-only*
+   discovery and stale-link maintenance. It uses the existing server database
+   connection; no public write endpoint or browser credentials are needed.
+2. **GitHub Actions** (`.github/workflows/ingest_jobs.yml`) is a separate
+   read-only preflight, scheduled at 07:23 UTC. It runs tests and validates
+   approved ATS links, but has no production database-writing path.
 
-The GitHub schedule is best-effort; examine run history and failures. Do not
-assume a scheduled run succeeded merely because the workflow exists.
+GitHub CI jobs were observed failing before steps started on 2026-11-08;
+the GitHub runner is not the production scheduler. Vercel Hobby timing is
+best-effort, and an accepted trigger is not proof that the background import
+completed. Check Supabase run records.
 
 ## Explicit production approvals
 
@@ -35,8 +37,8 @@ Every automatically imported job must additionally satisfy:
 - No sample fixture may be used for production writes. A job seen twice in the
   same run is not submitted twice.
 
-The API independently re-runs profile validation and performs normalized
-company/title/location UPSERTs with stable job IDs and source provenance.
+The server-side importer applies the shared profile validation and performs
+normalized company/title/location UPSERTs with stable job IDs and source provenance.
 Closed links are only deactivated after two confirmed checks; rows and user
 bookmarks are never deleted. A repeated import of the same official URL does
 not discard a previously confirmed `live` status.
@@ -46,44 +48,42 @@ an explicit multi-year experience requirement. For example, the live GAMBIT
 SAP Basis Consultant advertises *mehrjährige Erfahrung* despite Personio
 `entry-level / 1-2` metadata; it is excluded from the junior/student profile.
 
-## GitHub Actions secrets (repository settings)
+## Authentication and credentials
 
-The scheduled job requires two existing GitHub Actions repository secrets:
+The Vercel Cron route requires `CRON_SECRET`; Render's scheduled-scan endpoint
+checks the corresponding `SCAN_TRIGGER_TOKEN`. Both belong exclusively in the
+hosting providers' server-side configuration. They must never be exposed to
+the browser or committed to the repository. The opt-in flag
+`ENABLE_VERIFIED_AUTO_IMPORT=true` controls production imports on Render.
 
-- `DATAPULSE_API_BASE_URL`: the existing HTTPS Render API origin.
-- `DATAPULSE_INGEST_TOKEN`: the same long server-side `INGEST_TOKEN` already
-  configured on Render. This value must never be exposed in the frontend,
-  committed, included in artifacts, or pasted into issue comments.
-
-If either secret is absent, the job **fails closed** before attempting any
-production import. Configure secrets in GitHub's protected repository settings;
-do not print or copy their values into logs.
+The standalone authenticated API importer still supports `INGEST_TOKEN`, but
+the daily Vercel writer operates directly inside the trusted Render backend.
+No GitHub Actions write secrets are required for the scheduled job.
 
 ## Verification and cutover checklist
 
 1. Locally run `PYTHONPATH=backend python -m pytest -q backend/tests`.
 2. Preview public sources without writes:
    `cd backend && python -m app.collectors.run_ingestion --approved-only --dry-run=true --verify-links`.
-3. Run `Daily Approved ATS Job Ingestion` using `workflow_dispatch` in the
-   GitHub Actions UI. Verify the job succeeds, retrieve the bounded JSON
-   artifact and check that `inserted + updated` equals `accepted`.
-4. Query Supabase `datapulse.ingestion_runs`, inspect the exact imported job
-   records, and verify the live DataPulse UI shows them under the right preset.
-5. Once the GitHub worker is proven, disable only the old Dow pilot with
-   `ENABLE_VERIFIED_AUTO_IMPORT=false` in Render. Keep Vercel's stale-link
-   maintenance enabled. Watch at least one subsequent scheduled run.
+3. Verify Vercel's protected cron trigger forwards to Render successfully.
+   The first approved import should log a separate `dry_run=false` row in
+   `datapulse.ingestion_runs`; the broad scan logs `dry_run=true` separately.
+4. Verify `inserted + updated = accepted` and inspect the exact resulting
+   job records, source provenance, and website cards.
+5. Check the next scheduled run and error logs. GitHub's independent read-only
+   preflight can be repaired without affecting production imports.
 
 ### Rollback
 
-Revert the GitHub Actions workflow to `--dry-run=true` without `--apply` (or
-temporarily disable the scheduled workflow). This stops new imports and does
-not delete any job or saved application. Re-enable the bounded Dow Vercel pilot
-only if needed; do not run two competing production writers by default.
+Set `ENABLE_VERIFIED_AUTO_IMPORT=false` on Render. The Vercel Cron still performs
+read-only scanning and stale-link maintenance, but no new jobs are written.
+Do not delete imported jobs or saved applications. The GitHub workflow is
+read-only regardless of this flag.
 
 ### Monitoring
 
-Every GitHub run prints a JSON report and retains `datapulse-approved-ats-report`
-for 14 days. Failures cause a nonzero workflow result. The backend ingestion
-log records accepted/rejected/inserted/updated counts; the public API exposes
-the latest completed import timestamp. GitHub failure notifications depend on
-repository notification settings; no external alert integration is configured.
+Each Vercel-triggered execution stores a production import row and a distinct
+read-only discovery row in Supabase with counts and failure reasons. The public
+API exposes the latest completed run timestamp. The GitHub preflight prints a
+JSON report and retains `datapulse-approved-ats-report` for 14 days if runners
+are available. No external alert integration is configured yet.
