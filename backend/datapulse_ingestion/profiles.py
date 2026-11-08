@@ -31,7 +31,8 @@ SAP_BASIS_ROLE = re.compile(
     r'(?:sap\s+)?basis\s+(?:consultant|administrator|admin|engineer)|'
     r'netweaver\s+(?:administrator|consultant|engineer)|'
     r's\s*/\s*4\s*hana\s+basis|'
-    r'sap\s+system\s+administrator)\b', re.I,
+    r'sap\s+system\s+(?:administrator|care|operations)|'
+    r'sap\s+administrator|sap\s+systembetreuung)\b', re.I,
 )
 SAP_SKILLS = {
     'SAP Basis': r'\bsap\s+basis\b',
@@ -201,7 +202,7 @@ def persona_matches(raw:RawJob, country:str, exp:Experience) -> tuple[str,...]:
         # A title may say Senior despite an explicit five-year requirement.
         # Do not confuse the title with the numeric experience constraint.
         # Experienced only with explicit, credible evidence of ~5 years.
-        if exp.minimum is not None and 3<=exp.minimum<=6 and (exp.maximum is None or (3<=exp.maximum<=8)):
+        if exp.minimum is not None and 3<=exp.minimum<=6 and (exp.maximum is None or (3<=exp.maximum<=6)):
             return (SAP_EXPERIENCED,) if country in ('DE','IN') else ()
         return ()
     if country!='DE' or not ROLE.search(title):
@@ -209,7 +210,7 @@ def persona_matches(raw:RawJob, country:str, exp:Experience) -> tuple[str,...]:
     if SENIOR.search(title):return ()
     # A requirement of >=3 years is always excluded. Unknown experience is
     # eligible ONLY if the title explicitly identifies a junior/student role.
-    if exp.minimum is not None and exp.minimum>2:return ()
+    if (exp.minimum is not None and exp.minimum>2) or (exp.maximum is not None and exp.maximum>2):return ()
     explicit_junior=bool(STUDENT.search(combined) or INTERN.search(combined) or JUNIOR.search(combined))
     if not explicit_junior and exp.minimum is None:return ()
     return (DE_JUNIOR,)
