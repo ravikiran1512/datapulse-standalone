@@ -225,7 +225,10 @@ async def scan_bounded(
                                 f=Fetcher(timeout=HTTP_TIMEOUT,delay_seconds=.3)
                                 try:return CONNECTORS[typ](board,f)
                                 finally:f.client.close()
-                            fetched=await asyncio.wait_for(asyncio.to_thread(invoke),timeout=25)
+                            # A whole synchronous connector occupies one of the
+                            # ten global outbound slots for its bounded lifetime.
+                            async with semaphore:
+                                fetched=await asyncio.wait_for(asyncio.to_thread(invoke),timeout=25)
                             row["feed_status"]="verified_public_ats"
                             row["feed_type"]=typ
                             row["feed_origin"]=origin
