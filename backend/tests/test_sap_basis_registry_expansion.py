@@ -202,3 +202,23 @@ def test_personio_german_xml_fallback_does_not_invent_text():
     assert f.calls==['en','de']
     job,reason=normalize_for_profiles(jobs[0])
     assert reason=='accepted' and job.persona_tags==[SAP_EXPERIENCED]
+
+
+def test_structured_personio_entry_level_requires_1_to_2_years():
+    from datapulse_ingestion.connectors import personio
+    en='''<positions><position><id>324429</id><name>SAP Basis Consultant (m/w/d)</name><office>Deutschland</office><seniority>entry-level</seniority><employmentType>permanent</employmentType><yearsOfExperience>1-2</yearsOfExperience></position></positions>'''
+    de='''<positions><position><id>324429</id><name>SAP Basis Consultant (m/w/d)</name><office>Deutschland</office><jobDescriptions><jobDescription><value>SAP-Basis-Systeme administrieren und betreiben.</value></jobDescription></jobDescriptions></position></positions>'''
+    class Feed:
+        def get(self,url,**kw):return {'en':en,'de':de}[kw['params']['language']]
+    jobs=personio({'board':'gambit','company':'GAMBIT Consulting','apply_url_template':'https://gambit.jobs.personio.de/job/{id}?language=en'},Feed())
+    assert jobs[0].structured_experience_years=='1-2'
+    job,reason=normalize_for_profiles(jobs[0])
+    assert reason=='accepted' and job.persona_tags==[SAP_STUDENT]
+    assert job.job_level=='Junior' and job.min_experience_years==1 and job.max_experience_years==2
+    assert job.employment_type!='Werkstudent'
+
+
+def test_structured_experience_conflict_is_held_for_review():
+    job,reason=normalize_for_profiles(make_job('SAP Basis Consultant','Germany','Requirements: 5+ years of SAP Basis experience.',
+                 job_level='entry-level',structured_experience_years='1-2'))
+    assert job is None and reason=='ambiguous_experience_evidence'
