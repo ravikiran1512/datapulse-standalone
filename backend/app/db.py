@@ -18,7 +18,7 @@ def identity(value: str) -> str:
 
 
 def source_type_for(name: str) -> str:
-    if name.lower() in {'greenhouse','lever','ashby','personio','workday','successfactors'}:
+    if name.lower() in {'greenhouse','lever','ashby','personio','workday','successfactors','smartrecruiters'}:
         return 'direct_ats'
     if name.lower() in {'company_portal','corporate_html','html'}:
         return 'company_portal'
