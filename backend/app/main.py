@@ -256,3 +256,7 @@ async def remove_bookmark(job_id:UUID,request:Request,user_id:UUID=Depends(verif
     pool=db(request)
     await pool.execute('DELETE FROM datapulse.user_saved_jobs WHERE user_id=$1 AND job_id=$2',user_id,job_id)
     return {'saved':False}
+
+# Read-only authenticated ATS scan endpoint.
+from .scheduled_scan import router as scan_router
+app.include_router(scan_router)
