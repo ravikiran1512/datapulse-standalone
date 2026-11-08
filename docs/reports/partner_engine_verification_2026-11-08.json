@@ -1,0 +1,207 @@
+{
+  "report_format": "reconstructed_summary_from_observed_execution_logs",
+  "original_full_report": "Generated in an ephemeral networked test environment but not retained after that environment stopped",
+  "timestamp_utc": "2026-11-08T19:01:41.249721+00:00",
+  "source": "partner_directories",
+  "sources_requested": [
+    "sap_partners",
+    "databricks_partners",
+    "softgarden",
+    "successfactors"
+  ],
+  "target_profiles": [
+    "sap_basis_experienced",
+    "sap_basis_student",
+    "data_engineering_junior"
+  ],
+  "dry_run": true,
+  "production_writes_enabled": false,
+  "concurrency_limit": 10,
+  "per_host_limit": 2,
+  "http_timeout_seconds": 5,
+  "employer_budget_seconds": 35,
+  "targets_checked": 16,
+  "directory_names_visible": 0,
+  "feeds_attempted": 2,
+  "feeds_validated": 2,
+  "verified_public_vendor_feeds": 0,
+  "jsonld_pages_verified": 0,
+  "vendor_candidates": {
+    "successfactors": 1
+  },
+  "jobs_seen": 26,
+  "accepted": 0,
+  "per_profile": {
+    "sap_basis_experienced": 0,
+    "sap_basis_student": 0,
+    "data_engineering_junior": 0
+  },
+  "rejections": {
+    "unrelated_role": 22,
+    "de_3_plus_years": 1,
+    "country_unverified": 3
+  },
+  "errors": {},
+  "companies": [
+    {
+      "company": "NTT DATA Business Solutions",
+      "ecosystem": "sap",
+      "directory_status": "robots_unverified_or_disallowed",
+      "career_status": "ok",
+      "feed_status": "unverified",
+      "jobs_seen": 0,
+      "accepted": 0
+    },
+    {
+      "company": "Data Reply",
+      "ecosystem": "databricks",
+      "directory_status": "dynamic_or_name_not_visible",
+      "career_status": "ok",
+      "feed_status": "unverified",
+      "jobs_seen": 0,
+      "accepted": 0
+    },
+    {
+      "company": "cbs Corporate Business Solutions",
+      "ecosystem": "sap",
+      "directory_status": "robots_unverified_or_disallowed",
+      "career_status": "ok",
+      "feed_status": "unverified",
+      "jobs_seen": 0,
+      "accepted": 0
+    },
+    {
+      "company": "inovex",
+      "ecosystem": "databricks",
+      "directory_status": "dynamic_or_name_not_visible",
+      "career_status": "ok",
+      "feed_status": "unverified",
+      "jobs_seen": 0,
+      "accepted": 0
+    },
+    {
+      "company": "Allgeier",
+      "ecosystem": "sap",
+      "directory_status": "robots_unverified_or_disallowed",
+      "career_status": "ok",
+      "feed_status": "unverified",
+      "jobs_seen": 0,
+      "accepted": 0
+    },
+    {
+      "company": "STATWORX",
+      "ecosystem": "databricks",
+      "directory_status": "dynamic_or_name_not_visible",
+      "career_status": "ok",
+      "feed_status": "verified_public_ats",
+      "jobs_seen": 23,
+      "accepted": 0,
+      "feed_type": "personio"
+    },
+    {
+      "company": "Scheer GmbH",
+      "ecosystem": "sap",
+      "directory_status": "robots_unverified_or_disallowed",
+      "career_status": "ok",
+      "feed_status": "unverified",
+      "jobs_seen": 0,
+      "accepted": 0
+    },
+    {
+      "company": "Infotion",
+      "ecosystem": "databricks",
+      "directory_status": "dynamic_or_name_not_visible",
+      "career_status": "ok",
+      "feed_status": "unverified",
+      "jobs_seen": 0,
+      "accepted": 0
+    },
+    {
+      "company": "LTIMindtree",
+      "ecosystem": "sap",
+      "directory_status": "robots_unverified_or_disallowed",
+      "career_status": "robots_unverified_or_disallowed",
+      "feed_status": "unverified",
+      "jobs_seen": 0,
+      "accepted": 0
+    },
+    {
+      "company": "Keyrus",
+      "ecosystem": "databricks",
+      "directory_status": "dynamic_or_name_not_visible",
+      "career_status": "redirect_unverified",
+      "feed_status": "unverified",
+      "jobs_seen": 0,
+      "accepted": 0
+    },
+    {
+      "company": "Hexaware",
+      "ecosystem": "sap",
+      "directory_status": "robots_unverified_or_disallowed",
+      "career_status": "ok",
+      "feed_status": "unverified",
+      "jobs_seen": 0,
+      "accepted": 0
+    },
+    {
+      "company": "Avanade",
+      "ecosystem": "databricks",
+      "directory_status": "dynamic_or_name_not_visible",
+      "career_status": "redirect_unverified",
+      "feed_status": "unverified",
+      "jobs_seen": 0,
+      "accepted": 0
+    },
+    {
+      "company": "Persistent Systems",
+      "ecosystem": "sap",
+      "directory_status": "robots_unverified_or_disallowed",
+      "career_status": "ok",
+      "feed_status": "unverified",
+      "jobs_seen": 0,
+      "accepted": 0
+    },
+    {
+      "company": "Capgemini",
+      "ecosystem": "databricks",
+      "directory_status": "dynamic_or_name_not_visible",
+      "career_status": "ok",
+      "feed_status": "unverified",
+      "jobs_seen": 0,
+      "accepted": 0
+    },
+    {
+      "company": "Birlasoft",
+      "ecosystem": "sap",
+      "directory_status": "robots_unverified_or_disallowed",
+      "career_status": "ok",
+      "feed_status": "unverified",
+      "jobs_seen": 0,
+      "accepted": 0,
+      "vendor_checks": [
+        {
+          "type": "successfactors",
+          "status": "no_observed_public_feed_url"
+        }
+      ]
+    },
+    {
+      "company": "Accenture",
+      "ecosystem": "databricks",
+      "directory_status": "dynamic_or_name_not_visible",
+      "career_status": "ok",
+      "feed_status": "verified_public_ats",
+      "jobs_seen": 3,
+      "accepted": 0,
+      "feed_type": "workday"
+    }
+  ],
+  "inserted": 0,
+  "updated": 0,
+  "caveats": [
+    "This JSON is an evidence-based summary reconstructed from observed run logs, not a byte-for-byte copy of the original raw report.",
+    "Public directory name visibility is not proof of partner certification tier.",
+    "Unverified ATS endpoints are not active feeds. No Softgarden public feed was observed in this scan.",
+    "No Supabase production write was attempted."
+  ]
+}
