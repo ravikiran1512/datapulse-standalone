@@ -47,7 +47,8 @@ def test_sap_experienced_strict_3_to_6():
 
 def test_no_persona_by_default_means_three_filtered_tracks():
     from inspect import signature
-    p=signature(app.routes[[x.path for x in app.routes].index('/api/v1/jobs')].endpoint).parameters['persona']
+    from app.main import jobs
+    p=signature(jobs).parameters['persona']
     assert p.default.default==[]
 
 
