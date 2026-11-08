@@ -169,16 +169,30 @@ def personio(board:dict,f:Fetcher)->list[RawJob]:
     subdomain=board["board"];host=f"{subdomain}.jobs.personio.de"
     xml=f.get(f"https://{host}/xml",params={"language":"en"},expected_host=host,expect="text")
     root=SafeET.fromstring(xml)
+    positions=root.findall(".//position")
+
+    def description(p)->str:
+        # Some tenants do not populate English XML descriptions. Do not
+        # invent a description or treat empty text as an experience waiver.
+        content=" ".join(x.findtext("value","") or "" for x in p.findall("./jobDescriptions/jobDescription"))
+        return plaintext(content)
+
+    german={}
+    if any(not description(p) for p in positions):
+        # A second PUBLIC employer XML request, never an unapproved HTML crawl.
+        xml_de=f.get(f"https://{host}/xml",params={"language":"de"},expected_host=host,expect="text")
+        root_de=SafeET.fromstring(xml_de)
+        german={p.findtext("id"):description(p) for p in root_de.findall(".//position") if p.findtext("id")}
     out=[]
-    for p in root.findall(".//position"):
+    for p in positions:
         identity=p.findtext("id")
         template=board.get("apply_url_template")
-        if not identity or not template:continue  # never invent a direct job URL
+        if not identity or not template:continue
         url=template.replace("{id}",identity)
         if urlsplit(url).hostname!=host:raise SourceError("Personio apply template must belong to the configured board")
-        desc=" ".join(x.findtext("value","") for x in p.findall("./jobDescriptions/jobDescription"))
+        desc=description(p) or german.get(identity,"")
         out.append(build_job(board,"Personio",identity,p.findtext("name"),p.findtext("office"),url,
-            plaintext(desc),date_posted=None,date_evidence="XML omits reliable first-published date",
+            desc,date_posted=None,date_evidence="XML omits reliable first-published date",
             employment_type=p.findtext("employmentType"),job_level=p.findtext("seniority"),
             work_model=p.findtext("schedule")))
     return out
