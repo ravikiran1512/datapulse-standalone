@@ -147,3 +147,7 @@ public job board API), with public-site robots and polite rate limits.
 The synthetic/SQLite integration tests do **not** prove live vacancies or actual
 PostgreSQL migration results. See [`docs/SAP_BASIS_REGISTRY_EXPANSION.md`](docs/SAP_BASIS_REGISTRY_EXPANSION.md)
 for source status, local checks, and limitations.
+
+### November 2026 candidate feature upgrade
+
+The default frontend preset selection is empty ("Show All"). Candidates can now save application statuses locally, export saved jobs as escaped CSV, inspect a profile-based skill-gap drawer, and see evidence-backed language/visa/salary indicators. The API provides corresponding metadata, authenticated bookmark-status updates and bounded daily ATS stale-link checks. The partner directory resolver is in `backend/app/collectors/discover_partners.py` and intentionally reports unverified feed leads rather than auto-ingesting them. Details: `docs/CANDIDATE_FEATURES_AND_PARTNER_DISCOVERY.md`. Apply `sql/migrations/20261108_candidate_features.sql` before deployment.
