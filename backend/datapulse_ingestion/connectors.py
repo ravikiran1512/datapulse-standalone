@@ -194,6 +194,7 @@ def personio(board:dict,f:Fetcher)->list[RawJob]:
         out.append(build_job(board,"Personio",identity,p.findtext("name"),p.findtext("office"),url,
             desc,date_posted=None,date_evidence="XML omits reliable first-published date",
             employment_type=p.findtext("employmentType"),job_level=p.findtext("seniority"),
+            structured_experience_years=p.findtext("yearsOfExperience"),
             work_model=p.findtext("schedule")))
     return out
 
