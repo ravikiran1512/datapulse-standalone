@@ -12,6 +12,15 @@ from .policy import language
 VISA = re.compile(r'\b(?:visa\s+(?:sponsorship|support|assistance)|sponsor(?:ing|ed)?\s+(?:your\s+)?(?:visa|work\s+permit)|blue\s+card\s+(?:sponsorship|support)|work\s+permit\s+sponsorship)\b',re.I)
 VISA_NEGATED = re.compile(r'\b(?:no|not|without|do\s+not|cannot|unable\s+to)\s+(?:provide\s+|offer\s+)?(?:visa\s+sponsorship|sponsor\s+(?:visas?|work\s+permits?))\b',re.I)
 RELOCATION = re.compile(r'\b(?:relocation\s+(?:assistance|support|package)|we\s+(?:cover|pay)\s+(?:your\s+)?relocation)\b',re.I)
+# A negative mention of relocation must not be counted as a benefit. In particular,
+# employer postings often say "No relocation support is provided for this role."
+RELOCATION_NEGATED = re.compile(
+    r'\b(?:'
+    r'(?:no|without)\s+relocation\s+(?:assistance|support|package)'
+    r'|(?:we\s+)?(?:do\s+not|don\x27t|does\s+not|doesn\x27t|cannot|can\x27t|will\s+not|unable\s+to)\s+(?:provide|offer|include|cover|pay\s+for)\s+(?:\w+\s+){0,3}relocation(?:\s+(?:assistance|support|package))?'
+    r'|relocation\s+(?:assistance|support|package)\s+(?:(?:is|are|will\s+be|has\s+been)\s+)?(?:not\s+(?:provided|available|offered|included)|unavailable)'
+    r')\b', re.I)
+
 # Employer-provided salary in EUR: capture amount with € or EUR and a range marker.
 EUR_RANGE = re.compile(r'(?:€\s*|EUR\s*)(\d{2,3}(?:[.,]\d{3})?\s*[kK]?)\s*[-–—to]{1,4}\s*(?:(?:€|EUR)\s*)?(\d{2,3}(?:[.,]\d{3})?\s*[kK]?)',re.I)
 INR_LPA = re.compile(r'(?:₹|INR|Rs\.?|\b)\s*(\d{1,3}(?:\.\d+)?)\s*[-–—]\s*(?:₹|INR|Rs\.?)?\s*(\d{1,3}(?:\.\d+)?)\s*(?:LPA|lakhs?\s+per\s+annum)\b',re.I)
@@ -31,7 +40,7 @@ def extract_metadata(description: str) -> CandidateMetadata:
     _, english = language(text)
     # `not German C1 required` is not proof that English is an accepted language.
     visa = bool(VISA.search(text)) and not bool(VISA_NEGATED.search(text))
-    relocate = bool(RELOCATION.search(text))
+    relocate = bool(RELOCATION.search(text)) and not bool(RELOCATION_NEGATED.search(text))
     salary = currency = evidence = None
     m = EUR_RANGE.search(text)
     if m:
