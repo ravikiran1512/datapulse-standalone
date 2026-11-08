@@ -182,12 +182,16 @@ class BoundedVerifier:
     def __init__(self, client: httpx.AsyncClient, semaphore: asyncio.Semaphore):
         self.client=client
         self.semaphore=semaphore
+        self._host_limits:dict[str,asyncio.Semaphore]={}
         self._robots:dict[str,RobotFileParser|None]={}
         self._locks:dict[str,asyncio.Lock]={}
 
     async def _get(self,url:str) -> httpx.Response:
+        hostname=urlsplit(url).hostname or ""
+        host_limit=self._host_limits.setdefault(hostname,asyncio.Semaphore(2))
         async with self.semaphore:    # global max simultaneous outbound requests
-            return await self.client.get(url,timeout=HTTP_TIMEOUT,follow_redirects=False)
+            async with host_limit:      # at most two requests per ATS host
+                return await self.client.get(url,timeout=HTTP_TIMEOUT,follow_redirects=False)
 
     async def robots_allowed(self,url:str) -> bool:
         if not public_https(url):return False
