@@ -11,12 +11,14 @@ import json
 import logging
 import os
 from pathlib import Path
+from datetime import date
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 
-from .collectors.run_ingestion import ROOT, collect
+from .collectors.run_ingestion import ROOT, collect, eligible_boards
 from .link_checker import check_stale_jobs
+from .collectors.discover_partners import discover
 
 router = APIRouter(prefix="/api/v1/internal", tags=["internal"])
 log = logging.getLogger("datapulse.scheduled_scan")
@@ -32,10 +34,15 @@ def require_scan_token(authorization: Annotated[str | None, Header()] = None) ->
 
 async def _execute_scan(pool, run_id) -> None:
     try:
+        registry=ROOT / "config" / "verified-boards.json"
+        board_count=len(eligible_boards(registry))
+        board_offset=(date.today().toordinal()*11)%board_count if board_count else 0
         result = await collect(
-            ROOT / "config" / "verified-boards.json",
+            registry,
             dry_run=True,
             max_boards=11,
+            board_offset=board_offset,
+            expand_registry=True,
         )
         # This is a read-only ATS scan: jobs table and bookmark table are untouched.
         await pool.execute(
@@ -59,6 +66,16 @@ async def _execute_scan(pool, run_id) -> None:
                 log.info('Stale-link maintenance: %s',link_report)
             except Exception:
                 log.exception('Stale-link maintenance failed; listings preserved')
+        # Once weekly, discover potential partner career feed links without
+        # guessing slugs, inserting jobs, or adding new cron schedules.
+        if date.today().weekday()==6 and os.getenv('ENABLE_PARTNER_DISCOVERY','true').lower()=='true':
+            try:
+                targets=json.loads((ROOT/'config'/'partner_targets.json').read_text())
+                leads=await discover(targets,max_targets=3)
+                log.info('Weekly partner directory leads: %s',
+                         [(x['name'],len(x['candidates']),x['status']) for x in leads])
+            except Exception:
+                log.exception('Partner discovery unavailable; ingestion unaffected')
         log.info(
             "ATS read-only scan finished: attempted=%d, succeeded=%d, seen=%d, eligible=%d, failures=%d",
             result["boards_attempted"], result["boards_succeeded"],
