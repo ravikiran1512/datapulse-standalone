@@ -28,3 +28,7 @@ Be aware that directories relying on JavaScript or authenticated access may not 
 3. Deploy the frontend directly to the existing Vercel Hobby project. Keep `CRON_SECRET` and `SCAN_TRIGGER_TOKEN` private.
 4. Keep all ATS ingestions read-only. No new jobs are inserted by this feature rollout.
 5. Direct ATS link checks cannot guarantee job availability. When in doubt, preserve the listing and ask the user to confirm on the employer's site.
+
+### Registry rotation and verified partner feed
+
+STATWORX was verified through its public Personio XML on 2026-11-08 (HTTP 200; 23 positions) and added as an enabled employer ATS source. The registry now has 20 enabled feeds. To avoid exhausting Render Free runtime, the daily read-only scanner rotates a maximum of 11 sources per execution, with wraparound: all active feeds are covered over successive days. A separate weekly, bounded directory resolver checks up to three curated public partner pages and logs candidate ATS links for human review. The weekly task does not import jobs or promote unverified feeds.
