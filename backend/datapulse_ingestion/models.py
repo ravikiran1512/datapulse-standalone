@@ -17,6 +17,7 @@ class RawJob:
     work_model: str | None = None
     employment_type: str | None = None
     job_level: str | None = None
+    structured_experience_years: str | None = None
     country_code: str | None = None
     remote_eligible_germany: bool = False
     remote_eligible_india: bool = False
