@@ -1,0 +1,17 @@
+{
+  "sources": [
+    {"ecosystem":"Databricks", "name":"STATWORX", "career_page":"https://statworx.jobs.personio.de/", "country":"DE", "notes":"Personio public careers page; feed must be checked before activation"},
+    {"ecosystem":"Databricks", "name":"inovex", "career_page":"https://www.inovex.de/de/karriere/stellenangebote/", "country":"DE"},
+    {"ecosystem":"Databricks", "name":"Data Reply", "career_page":"https://www.reply.com/data-reply/en/careers", "country":"DE"},
+    {"ecosystem":"SAP", "name":"cbs Corporate Business Solutions", "career_page":"https://www.cbs-consulting.com/en/careers-at-cbs/", "country":"DE"},
+    {"ecosystem":"SAP", "name":"Scheer IMC", "career_page":"https://www.scheer-imc.com/career/vacancies/", "country":"DE"}
+  ],
+  "unresolved_companies": {
+    "SAP": ["NTT DATA Business Solutions","Allgeier","LTIMindtree","Hexaware","Persistent Systems"],
+    "Databricks": ["Infotion","Keyrus","Avanade","Capgemini"]
+  },
+  "directory_references": [
+    {"ecosystem":"Databricks", "url":"https://www.databricks.com/partners/partner-directory", "note":"Partner listing; tier needs independent verification"},
+    {"ecosystem":"SAP", "url":"https://www.sap.com/partners/find.html", "note":"Official SAP partner discovery starting point; portal data may require consent or JS"}
+  ]
+}
