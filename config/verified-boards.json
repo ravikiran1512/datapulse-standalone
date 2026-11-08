@@ -1,19 +1,372 @@
 {
   "verified_from_public_careers": "2026-11-08",
-  "note": "Source registry verified by public career-board pages; per-job availability, explicit English requirement and >=3 technologies must still pass at runtime.",
+  "note": "Expanded multi-profile SAP Basis India/Germany + DE junior registry. Enabled Workday job search uses public site-backed requests; not an official Workday API. Respects access refusals and never writes by default.",
   "boards": [
-    {"type": "greenhouse", "company": "Superchat", "board": "superchat", "enabled": true},
-    {"type": "greenhouse", "company": "Awin", "board": "awin", "enabled": true},
-    {"type": "greenhouse", "company": "Proalpha Group", "board": "proalphagroup", "enabled": true},
-    {"type": "lever", "company": "Octopus Energy Group", "board": "octoenergy", "region": "global", "enabled": true},
-    {"type": "ashby", "company": "Clera", "board": "clera", "enabled": true},
-    {"type": "ashby", "company": "Wayve", "board": "wayve", "enabled": true},
-    {"type": "personio", "company": "Dataciders SE", "board": "dataciders", "apply_url_template": "https://dataciders.jobs.personio.de/job/{id}?language=en", "enabled": true},
-    {"type": "personio", "company": "Jedox GmbH", "board": "jedox", "apply_url_template": "https://jedox.jobs.personio.de/job/{id}?language=en", "enabled": true},
-    {"type": "personio", "company": "Woodmark Group GmbH", "board": "woodmark-consulting-ag", "apply_url_template": "https://woodmark-consulting-ag.jobs.personio.de/job/{id}?language=en", "enabled": true},
-    {"type": "personio", "company": "Bookboost", "board": "bookboost", "apply_url_template": "https://bookboost.jobs.personio.de/job/{id}?language=en", "enabled": true},
-    {"type": "personio", "company": "Climate Analytics", "board": "climate", "apply_url_template": "https://climate.jobs.personio.de/job/{id}?language=en", "enabled": true},
-    {"type": "workday", "company": "Springer Nature", "career_url": "https://springernature.wd3.myworkdayjobs.com/en-US/SpringerNatureCareers", "enabled": false},
-    {"type": "successfactors", "company": "REQUIRES_EMPLOYER_FEED", "feed_url": "https://REPLACE_WITH_APPROVED_PUBLIC_FEED", "enabled": false}
-  ]
+    {
+      "type": "greenhouse",
+      "company": "Superchat",
+      "board": "superchat",
+      "enabled": true
+    },
+    {
+      "type": "greenhouse",
+      "company": "Awin",
+      "board": "awin",
+      "enabled": true
+    },
+    {
+      "type": "greenhouse",
+      "company": "Proalpha Group",
+      "board": "proalphagroup",
+      "enabled": true
+    },
+    {
+      "type": "lever",
+      "company": "Octopus Energy Group",
+      "board": "octoenergy",
+      "region": "global",
+      "enabled": true
+    },
+    {
+      "type": "ashby",
+      "company": "Clera",
+      "board": "clera",
+      "enabled": true
+    },
+    {
+      "type": "ashby",
+      "company": "Wayve",
+      "board": "wayve",
+      "enabled": true
+    },
+    {
+      "type": "personio",
+      "company": "Dataciders SE",
+      "board": "dataciders",
+      "apply_url_template": "https://dataciders.jobs.personio.de/job/{id}?language=en",
+      "enabled": true
+    },
+    {
+      "type": "personio",
+      "company": "Jedox GmbH",
+      "board": "jedox",
+      "apply_url_template": "https://jedox.jobs.personio.de/job/{id}?language=en",
+      "enabled": true
+    },
+    {
+      "type": "personio",
+      "company": "Woodmark Group GmbH",
+      "board": "woodmark-consulting-ag",
+      "apply_url_template": "https://woodmark-consulting-ag.jobs.personio.de/job/{id}?language=en",
+      "enabled": true
+    },
+    {
+      "type": "personio",
+      "company": "Bookboost",
+      "board": "bookboost",
+      "apply_url_template": "https://bookboost.jobs.personio.de/job/{id}?language=en",
+      "enabled": true
+    },
+    {
+      "type": "personio",
+      "company": "Climate Analytics",
+      "board": "climate",
+      "apply_url_template": "https://climate.jobs.personio.de/job/{id}?language=en",
+      "enabled": true
+    },
+    {
+      "type": "workday",
+      "company": "Springer Nature",
+      "career_url": "https://springernature.wd3.myworkdayjobs.com/en-US/SpringerNatureCareers",
+      "enabled": false
+    },
+    {
+      "type": "personio",
+      "company": "GAMBIT Consulting",
+      "board": "gambit",
+      "enabled": true,
+      "countries": [
+        "DE"
+      ],
+      "verification": "public Personio XML HTTP 200, 2026-11-08",
+      "apply_url_template": "https://gambit.jobs.personio.de/job/{id}?language=en"
+    },
+    {
+      "type": "personio",
+      "company": "PlanOrg",
+      "board": "planorg",
+      "enabled": true,
+      "countries": [
+        "DE"
+      ],
+      "verification": "public Personio XML HTTP 200, 2026-11-08",
+      "apply_url_template": "https://planorg.jobs.personio.de/job/{id}?language=en"
+    },
+    {
+      "type": "smartrecruiters",
+      "company": "Nagarro",
+      "board": "Nagarro1",
+      "enabled": true,
+      "countries": [
+        "DE",
+        "IN"
+      ],
+      "verification": "public Posting API HTTP 200 with detail, 2026-11-08",
+      "queries": [
+        "SAP Basis",
+        "SAP NetWeaver",
+        "SAP HANA",
+        "Data Engineer"
+      ],
+      "max_pages_per_query": 1
+    },
+    {
+      "type": "workday",
+      "company": "Accenture",
+      "career_url": "https://accenture.wd103.myworkdayjobs.com/en-US/AccentureCareers",
+      "enabled": true,
+      "countries": [
+        "DE",
+        "IN"
+      ],
+      "verification": "public site/robots allowed; career search API HTTP 200, 2026-11-08",
+      "queries": [
+        "SAP Basis",
+        "SAP HANA",
+        "data engineer"
+      ],
+      "max_pages_per_query": 1
+    },
+    {
+      "type": "workday",
+      "company": "Kyndryl",
+      "career_url": "https://kyndryl.wd5.myworkdayjobs.com/en-US/KyndrylProfessionalCareers",
+      "enabled": true,
+      "countries": [
+        "DE",
+        "IN"
+      ],
+      "verification": "public site/robots allowed; career search API HTTP 200, 2026-11-08",
+      "queries": [
+        "SAP Basis",
+        "SAP HANA",
+        "data engineer"
+      ],
+      "max_pages_per_query": 1
+    },
+    {
+      "type": "workday",
+      "company": "Hitachi",
+      "career_url": "https://hitachi.wd1.myworkdayjobs.com/en-US/hitachi",
+      "enabled": true,
+      "countries": [
+        "DE",
+        "IN"
+      ],
+      "verification": "public site/robots allowed; career search API HTTP 200, 2026-11-08",
+      "queries": [
+        "SAP Basis",
+        "SAP HANA",
+        "data engineer"
+      ],
+      "max_pages_per_query": 1
+    },
+    {
+      "type": "workday",
+      "company": "Deutsche Bank",
+      "career_url": "https://db.wd3.myworkdayjobs.com/en-US/DBWebsite",
+      "enabled": true,
+      "countries": [
+        "DE",
+        "IN"
+      ],
+      "verification": "public site/robots allowed; career search API HTTP 200, 2026-11-08",
+      "queries": [
+        "SAP Basis",
+        "SAP HANA",
+        "data engineer"
+      ],
+      "max_pages_per_query": 1
+    },
+    {
+      "type": "workday",
+      "company": "Dow",
+      "career_url": "https://dow.wd1.myworkdayjobs.com/en-US/ExternalCareers",
+      "enabled": true,
+      "countries": [
+        "DE",
+        "IN"
+      ],
+      "verification": "public site/robots allowed; career search API HTTP 200, 2026-11-08",
+      "queries": [
+        "SAP Basis",
+        "SAP HANA",
+        "data engineer"
+      ],
+      "max_pages_per_query": 1
+    },
+    {
+      "type": "workday",
+      "company": "AstraZeneca",
+      "career_url": "https://astrazeneca.wd3.myworkdayjobs.com/en-US/Careers",
+      "enabled": false,
+      "status": "verified_staged",
+      "reason": "Verified API responds, but relevance and scan budget not yet approved.",
+      "countries": [
+        "IN",
+        "DE"
+      ]
+    },
+    {
+      "type": "workday",
+      "company": "PVH",
+      "career_url": "https://pvh.wd1.myworkdayjobs.com/en-US/PVH_Careers",
+      "enabled": false,
+      "status": "verified_staged",
+      "reason": "Verified API responds; keyword match currently low and job expiry uncertain.",
+      "countries": [
+        "IN",
+        "DE"
+      ]
+    }
+  ],
+  "discovery_targets": [
+    {
+      "company": "SAP SE",
+      "countries": [
+        "DE",
+        "IN"
+      ],
+      "portal": "https://jobs.sap.com/en/jobs/",
+      "reason": "SAP is moving to a new career platform; employer-provided SuccessFactors XML feed not established."
+    },
+    {
+      "company": "TCS",
+      "countries": [
+        "DE",
+        "IN"
+      ],
+      "portal": "https://www.tcs.com/careers/india",
+      "reason": "Public official job index, ATS endpoint not verified."
+    },
+    {
+      "company": "Infosys",
+      "countries": [
+        "DE",
+        "IN"
+      ],
+      "portal": "https://www.infosys.com/careers/apply/",
+      "reason": "Public search interface; reusable employer feed not verified."
+    },
+    {
+      "company": "Wipro",
+      "countries": [
+        "DE",
+        "IN"
+      ],
+      "portal": "https://careers.wipro.com/",
+      "reason": "Public career site, no verified machine-readable ATS endpoint."
+    },
+    {
+      "company": "HCLTech",
+      "countries": [
+        "DE",
+        "IN"
+      ],
+      "portal": "https://careers.hcltech.com/",
+      "reason": "Public career site, ATS feed not yet verified."
+    },
+    {
+      "company": "Tech Mahindra",
+      "countries": [
+        "DE",
+        "IN"
+      ],
+      "portal": "https://careers.techmahindra.com/",
+      "reason": "Public career search, ATS endpoint not verified."
+    },
+    {
+      "company": "Capgemini",
+      "countries": [
+        "DE",
+        "IN"
+      ],
+      "portal": "https://www.capgemini.com/careers/",
+      "reason": "Career page only; do not assume SmartRecruiters/Workday tenant."
+    },
+    {
+      "company": "Cognizant",
+      "countries": [
+        "DE",
+        "IN"
+      ],
+      "portal": "https://careers.cognizant.com/india-en/",
+      "reason": "Public job pages, no safe supported public API confirmed."
+    },
+    {
+      "company": "Henkel",
+      "countries": [
+        "DE"
+      ],
+      "portal": "https://www.henkel.com/careers/find-your-job-apply",
+      "reason": "Official portal; public structured API not verified."
+    },
+    {
+      "company": "Siemens",
+      "countries": [
+        "DE"
+      ],
+      "portal": "https://www.siemens.com/de-de/company/jobs/",
+      "reason": "Official career site; ATS endpoint pending verification."
+    },
+    {
+      "company": "BMW Group",
+      "countries": [
+        "DE"
+      ],
+      "portal": "https://jobs.bmwgroup.com/",
+      "reason": "Official portal; ATS endpoint pending verification."
+    },
+    {
+      "company": "BASF",
+      "countries": [
+        "DE"
+      ],
+      "portal": "https://karriere.basf.com/de/en",
+      "reason": "Official portal; ATS endpoint pending verification."
+    },
+    {
+      "company": "Deutsche Telekom",
+      "countries": [
+        "DE"
+      ],
+      "portal": "https://careers.telekom.com/en",
+      "reason": "Official portal; ATS endpoint pending verification."
+    },
+    {
+      "company": "Vesterling",
+      "countries": [
+        "DE"
+      ],
+      "portal": "https://www.vesterling.com/en/find-a-job/",
+      "reason": "Third-party recruiter, not direct employer ATS; manual review and attribution needed."
+    },
+    {
+      "company": "DEVjobs DE",
+      "countries": [
+        "DE"
+      ],
+      "portal": "https://devjobs.de/",
+      "reason": "Third-party jobs portal, not direct employer ATS; no verified integration."
+    },
+    {
+      "company": "workidentity",
+      "countries": [
+        "DE"
+      ],
+      "portal": "https://workidentity.jobs.personio.de/",
+      "reason": "Public Personio XML exists, but recruiter represents client employers; not an employer-direct board."
+    }
+  ],
+  "verification_policy": "Only active boards with live verified public feed + robots/terms-safe access are ingested. Unverified employer portal links are discovery-only, never fabricated ATS IDs."
 }
