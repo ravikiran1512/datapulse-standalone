@@ -175,10 +175,10 @@ def strict_partner_profiles(raw: RawJob) -> tuple[tuple[str, ...], str, dict]:
         if 4 <= exp.minimum <= exp.maximum <= 7:
             return (SAP_EXPERIENCED,), "accepted_experienced", details
         return (), "sap_experience_outside_4_to_7", details
-    if country != "DE":
-        return (), "data_engineering_non_germany", details
     if not ROLE.search(title):
         return (), "unrelated_title", details
+    if country != "DE":
+        return (), "data_engineering_non_germany", details
     if SENIOR.search(title) or re.search(r"\b(?:lead|manager)\b", title, re.I):
         return (), "senior_data_engineering", details
     if exp.minimum is None or exp.maximum is None:
