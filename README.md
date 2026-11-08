@@ -13,19 +13,19 @@ A complete **independent application codebase** for migrating DataPulse away fro
 ## Repository layout
 
 ```text
-frontend/ Next.js app (copy of the familiar DataPulse UX)
-backend/app/main.py Search API, authenticated ingestion, saved-job endpoints
-backend/app/db.py Async PostgreSQL upsert and official URL precedence
-backend/app/search.py Safe quoted Boolean parser (AND / OR / NOT)
-backend/app/collectors/ Public ATS schedule runner
+frontend/                   Next.js app (copy of the familiar DataPulse UX)
+backend/app/main.py         Search API, authenticated ingestion, saved-job endpoints
+backend/app/db.py           Async PostgreSQL upsert and official URL precedence
+backend/app/search.py       Safe quoted Boolean parser (AND / OR / NOT)
+backend/app/collectors/     Public ATS schedule runner
 backend/datapulse_ingestion/ Reused modular ATS parsers and hard matching policy
-backend/tests/ Backend API, role, URL, deduplication and search tests
-sql/schema.sql PostgreSQL / Supabase pgvector schema
-sql/verification.sql Safe validation queries
+backend/tests/             Backend API, role, URL, deduplication and search tests
+sql/schema.sql             PostgreSQL / Supabase pgvector schema
+sql/verification.sql       Safe validation queries
 config/verified-boards.json Named public employer board registry
-scripts/import_legacy.py Audited import from a real owner-provided Site export
-.github/workflows/ Daily scheduled ingestion job
-render.yaml Render Blueprint
+scripts/import_legacy.py   Audited import from a real owner-provided Site export
+.github/workflows/         Daily scheduled ingestion job
+render.yaml                Render Blueprint
 ```
 
 ## Local development
@@ -67,7 +67,7 @@ cd backend
 python -m app.collectors.run_ingestion --source greenhouse --board Superchat --dry-run
 # Completely offline synthetic test (NOT a live vacancy):
 python -m app.collectors.run_ingestion --source greenhouse --board Superchat \
- --dry-run --fixture tests/fixtures/greenhouse-synthetic.json
+  --dry-run --fixture tests/fixtures/greenhouse-synthetic.json
 ```
 
 For a real production collector, configure `API_BASE_URL` and `INGEST_TOKEN` as GitHub **Action secrets**, then run `python -m app.collectors.run_ingestion --target api` through the workflow. Ingest writes require a 32+ character bearer token and pass all filtering rules server-side.

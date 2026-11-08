@@ -1,24 +1,24 @@
 export interface Job {
- id:string;
- job_title:string;
- company_name:string;
- location:string;
- region:string|null;
- work_mode:string;
- employment_type:string;
- level:string;
- domain_category:string;
- language_required:string;
- is_english_friendly:boolean;
- tech_stack:string[];
- match_score:number;
- official_apply_url:string;
- source_name:string;
- source_type:string;
- description:string|null;
- date_posted:string|null;
- last_verified_at:string|null;
- created_at:string;
+  id:string;
+  job_title:string;
+  company_name:string;
+  location:string;
+  region:string|null;
+  work_mode:string;
+  employment_type:string;
+  level:string;
+  domain_category:string;
+  language_required:string;
+  is_english_friendly:boolean;
+  tech_stack:string[];
+  match_score:number;
+  official_apply_url:string;
+  source_name:string;
+  source_type:string;
+  description:string|null;
+  date_posted:string|null;
+  last_verified_at:string|null;
+  created_at:string;
 }
 export interface SearchPage {
  items:Job[];

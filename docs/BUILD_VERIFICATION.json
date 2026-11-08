@@ -1,21 +1,21 @@
 {
- "verification_date": "2026-11-08",
- "project": "DataPulse standalone",
- "checks": {
- "python_pytest": {"status": "passed", "tests": 17},
- "python_compileall": {"status": "passed"},
- "typescript_tsx_parser": {"status": "passed", "parse_errors": 0, "files_checked": 5},
- "greenhouse_synthetic_fixture": {
- "status": "passed", "type": "SYNTHETIC_NOT_LIVE",
- "boards_attempted": 1, "jobs_seen": 3, "accepted": 1, "rejected": 2, "writes": 0
- },
- "legacy_import_dry_run": {"status": "passed", "type":"SYNTHETIC_NOT_LIVE", "legacy_rows":289, "valid_candidates":289, "writes":0},
- "nextjs_production_build": {"status": "not_run", "reason": "npm dependencies unavailable; npm install timed out"},
- "postgresql_schema_application": {"status": "not_run", "reason": "no selected independent PostgreSQL database; no psql server"},
- "real_ats_fetch": {"status": "not_run", "reason": "no functioning outbound HTTP from runtime"},
- "github_repository_created": {"status": "not_run", "reason": "the connected GitHub tool cannot create a repository"},
- "vercel_frontend_deployed": {"status": "not_run", "reason": "standalone repo not pushed and API URL not provisioned"},
- "render_api_deployed": {"status": "not_run", "reason": "Render integration not yet connected"},
- "legacy_289_real_jobs_copied": {"status": "not_run", "reason": "original ChatGPT Site private database export not available"}
- }
+  "verification_date": "2026-11-08",
+  "project": "DataPulse standalone",
+  "checks": {
+    "python_pytest": {"status": "passed", "tests": 17},
+    "python_compileall": {"status": "passed"},
+    "typescript_tsx_parser": {"status": "passed", "parse_errors": 0, "files_checked": 5},
+    "greenhouse_synthetic_fixture": {
+      "status": "passed", "type": "SYNTHETIC_NOT_LIVE",
+      "boards_attempted": 1, "jobs_seen": 3, "accepted": 1, "rejected": 2, "writes": 0
+    },
+    "legacy_import_dry_run": {"status": "passed", "type":"SYNTHETIC_NOT_LIVE", "legacy_rows":289, "valid_candidates":289, "writes":0},
+    "nextjs_production_build": {"status": "not_run", "reason": "npm dependencies unavailable; npm install timed out"},
+    "postgresql_schema_application": {"status": "not_run", "reason": "no selected independent PostgreSQL database; no psql server"},
+    "real_ats_fetch": {"status": "not_run", "reason": "no functioning outbound HTTP from runtime"},
+    "github_repository_created": {"status": "not_run", "reason": "the connected GitHub tool cannot create a repository"},
+    "vercel_frontend_deployed": {"status": "not_run", "reason": "standalone repo not pushed and API URL not provisioned"},
+    "render_api_deployed": {"status": "not_run", "reason": "Render integration not yet connected"},
+    "legacy_289_real_jobs_copied": {"status": "not_run", "reason": "original ChatGPT Site private database export not available"}
+  }
 }

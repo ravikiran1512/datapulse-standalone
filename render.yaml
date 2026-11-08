@@ -1,20 +1,20 @@
 services:
- - type: web
- name: datapulse-api
- runtime: python
- plan: free
- rootDir: backend
- buildCommand: pip install -r requirements.txt
- startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
- healthCheckPath: /api/v1/health
- envVars:
- - key: DATABASE_URL
- sync: false
- - key: FRONTEND_ORIGINS
- sync: false
- - key: INGEST_TOKEN
- sync: false
- - key: SUPABASE_URL
- sync: false
- - key: SUPABASE_PUBLISHABLE_KEY
- sync: false
+  - type: web
+    name: datapulse-api
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: FRONTEND_ORIGINS
+        sync: false
+      - key: INGEST_TOKEN
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_PUBLISHABLE_KEY
+        sync: false

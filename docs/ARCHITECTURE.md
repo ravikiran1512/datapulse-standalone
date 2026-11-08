@@ -2,20 +2,20 @@
 
 ```
 Verified public Greenhouse / Lever / Ashby / Personio / Workday / SuccessFactors boards
- | read-only rate-limited public API requests
- v
+       |  read-only rate-limited public API requests
+       v
 Python connector -> normalize policy -> English/skills/seniority/location/score filter
- | <=25 jobs per authenticated batch
- v
-FastAPI POST /api/v1/internal/ingest [INGEST_TOKEN, server only]
- | repeated write-boundary validation
- v
+       |  <=25 jobs per authenticated batch
+       v
+FastAPI POST /api/v1/internal/ingest   [INGEST_TOKEN, server only]
+       |  repeated write-boundary validation
+       v
 asyncpg transaction -> datapulse.jobs + datapulse.job_sources + ingestion_runs
- | normalized identity UPSERT, stable UUID, direct link precedence
- v
-FastAPI GET /api/v1/jobs <---- Next.js (Vercel)
- | local bookmarks in browser
- v
+       |  normalized identity UPSERT, stable UUID, direct link precedence
+       v
+FastAPI GET /api/v1/jobs  <----  Next.js (Vercel)
+       |                             local bookmarks in browser
+       v
 public pagination, filtering, source badges, apply links
 
 Optional Supabase Auth -> API token verification -> datapulse.user_saved_jobs
