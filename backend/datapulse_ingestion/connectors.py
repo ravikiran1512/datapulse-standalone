@@ -18,6 +18,7 @@ from defusedxml import ElementTree as SafeET
 
 from .models import RawJob
 from .policy import ROLE, clean, valid_date
+from .profiles import SAP_BASIS_ROLE
 
 
 class SourceError(RuntimeError): pass
@@ -88,8 +89,9 @@ class Fetcher:
         if not p.hostname:return False
         robots_url=f"{p.scheme}://{p.netloc}/robots.txt"
         try:
-            r=self.client.get(robots_url,follow_redirects=False)
-            if r.status_code!=200:return False  # fail closed if inaccessible/uncertain
+            r=self.client.get(robots_url,headers={"Accept":"text/plain"},follow_redirects=False)
+            if r.status_code!=200 or "user-agent:" not in r.text.lower():
+                return False  # fail closed for HTML app shells or inaccessible rules
             rp=RobotFileParser();rp.parse(r.text.splitlines());return rp.can_fetch(self.agent,url)
         except httpx.HTTPError:return False
 
@@ -195,11 +197,11 @@ def parse_workday_url(url:str)->tuple[str,str,str,str]:
 def workday(board:dict,f:Fetcher)->list[RawJob]:
     host,tenant,site,public_url=parse_workday_url(board["career_url"])
     api=f"https://{host}/wday/cxs/{tenant}/{site}"
-    if not f.robots_allowed(f"{api}/jobs"):
-        raise SourceError("Workday public career API blocked or robots.txt not readable")
+    if not f.robots_allowed(f"https://{host}/{site}/"):
+        raise SourceError("Workday public career site disallowed or robots.txt unavailable")
     out=[];seen=set()
     # Avoid wide, expensive crawling: keyword queries, few pages, only details of candidate titles.
-    queries=board.get("queries",["data engineer","analytics engineer","ETL"])
+    queries=board.get("queries",["SAP Basis","SAP HANA","data engineer"])
     for q in queries:
         offset=0;total=None
         for _ in range(min(15,int(board.get("max_pages_per_query",3)))):
@@ -208,7 +210,7 @@ def workday(board:dict,f:Fetcher)->list[RawJob]:
             if total is None:total=int(data.get("total",0))
             for j in batch:
                 path=j.get("externalPath") or ""
-                if not path.startswith("/job/") or path in seen or not ROLE.search(j.get("title","")):continue
+                if not path.startswith("/job/") or path in seen or not (ROLE.search(j.get("title","")) or SAP_BASIS_ROLE.search(j.get("title",""))):continue
                 seen.add(path)
                 detail=f.get(f"{api}{path}",expected_host=host)
                 info=detail.get("jobPostingInfo") or detail
@@ -222,6 +224,64 @@ def workday(board:dict,f:Fetcher)->list[RawJob]:
                     employment_type=info.get("timeType"),work_model=info.get("remoteType")))
             offset+=20
             if not batch or offset>=min(2000,total or 0):break
+    return out
+
+
+def smartrecruiters(board:dict,f:Fetcher)->list[RawJob]:
+    """Official, public SmartRecruiters Posting API, with per-company verification.
+
+    Keep requests small: query known target terms, inspect *titles* before
+    downloading description details, never use private hiring APIs.
+    """
+    company_id=board["board"]
+    if not re.fullmatch(r"[A-Za-z0-9_-]{2,64}",company_id):
+        raise SourceError("Invalid SmartRecruiters public board identifier")
+    host="api.smartrecruiters.com"
+    api=f"https://{host}/v1/companies/{quote(company_id)}/postings"
+    queries=board.get("queries",["SAP Basis","SAP NetWeaver","Data Engineer"])
+    out=[];seen=set()
+    for query in queries[:8]:
+        offset=0
+        for _ in range(min(3,int(board.get("max_pages_per_query",1)))):
+            data=f.get(api,params={"q":query,"limit":100,"offset":offset},expected_host=host)
+            content=data.get("content") or []
+            for j in content:
+                identity=str(j.get("id") or "")
+                title=j.get("name") or ""
+                if not identity or identity in seen or not (ROLE.search(title) or SAP_BASIS_ROLE.search(title)):
+                    continue
+                seen.add(identity)
+                location=j.get("location") or {}
+                country=str(location.get("country") or "").upper()
+                if country and country not in ("DE","IN"):
+                    continue
+                detail=f.get(f"{api}/{quote(identity)}",expected_host=host)
+                official=detail.get("postingUrl") or detail.get("applyUrl")
+                if not official or urlsplit(official).hostname!="jobs.smartrecruiters.com":
+                    # Keep only employer-specific public ATS posting links.
+                    continue
+                details=detail.get("jobAd") or {}
+                sections=details.get("sections") or {}
+                description=" ".join(plaintext((sections.get(k) or {}).get("text")) for k in
+                    ("jobDescription","qualifications","additionalInformation"))
+                address=detail.get("location") or location
+                country=str(address.get("country") or country).upper()
+                location_text=address.get("fullLocation") or ", ".join(
+                    x for x in (address.get("city"),{"DE":"Germany","IN":"India"}.get(country)) if x)
+                remote=bool(address.get("remote"))
+                if remote and country in ("DE","IN") and not re.search("remote",location_text,re.I):
+                    location_text="Remote, "+location_text
+                dt=iso_date(detail.get("releasedDate") or j.get("releasedDate"))
+                out.append(build_job(board,"SmartRecruiters",identity,detail.get("name") or title,
+                    location_text,official,description,country_code=country or None,
+                    date_posted=dt,date_evidence="releasedDate" if dt else None,
+                    remote_eligible_germany=remote and country=="DE",
+                    remote_eligible_india=remote and country=="IN",
+                    employment_type=(detail.get("typeOfEmployment") or {}).get("label"),
+                    work_model="Remote" if remote else ("Hybrid" if address.get("hybrid") else None)))
+            offset+=100
+            if not content or offset>=min(300,int(data.get("totalFound") or 0)):
+                break
     return out
 
 
@@ -273,4 +333,4 @@ def html_site(board:dict,f:Fetcher,*,headless=False)->list[RawJob]:
     return out
 
 CONNECTORS={"greenhouse":greenhouse,"lever":lever,"ashby":ashby,"personio":personio,
-    "workday":workday,"successfactors":successfactors,"html":html_site}
+    "workday":workday,"successfactors":successfactors,"smartrecruiters":smartrecruiters,"html":html_site}
