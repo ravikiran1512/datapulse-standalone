@@ -1,0 +1,138 @@
+{
+  "schema_version": 1,
+  "authoritative_directories": {
+    "sap": "https://partnerfinder.sap.com/partnerNavigator",
+    "databricks": "https://www.databricks.com/partners/partner-directory"
+  },
+  "notes": "These are discovery targets only. No tier or current directory membership is asserted without evidence. Career URLs are leads, not proof of ATS support.",
+  "targets": [
+    {
+      "ecosystem": "sap",
+      "name": "NTT DATA Business Solutions",
+      "country": "DE",
+      "career_page": "https://nttdata-solutions.com/de/karriere/",
+      "status": "directory_membership_unverified",
+      "tier": null
+    },
+    {
+      "ecosystem": "sap",
+      "name": "cbs Corporate Business Solutions",
+      "country": "DE",
+      "career_page": "https://www.cbs-consulting.com/en/careers-at-cbs/vacancies/",
+      "status": "directory_membership_unverified",
+      "tier": null
+    },
+    {
+      "ecosystem": "sap",
+      "name": "Allgeier",
+      "country": "DE",
+      "career_page": "https://allgeier.com/de/karriere/stellenangebote/",
+      "status": "directory_membership_unverified",
+      "tier": null
+    },
+    {
+      "ecosystem": "sap",
+      "name": "Scheer GmbH",
+      "country": "DE",
+      "career_page": "https://career.scheer-group.com/de/",
+      "status": "directory_membership_unverified",
+      "tier": null
+    },
+    {
+      "ecosystem": "sap",
+      "name": "LTIMindtree",
+      "country": "IN",
+      "career_page": "https://www.ltimindtree.com/",
+      "status": "directory_membership_unverified",
+      "tier": null
+    },
+    {
+      "ecosystem": "sap",
+      "name": "Hexaware",
+      "country": "IN",
+      "career_page": "https://hexaware.com/",
+      "status": "directory_membership_unverified",
+      "tier": null
+    },
+    {
+      "ecosystem": "sap",
+      "name": "Persistent Systems",
+      "country": "IN",
+      "career_page": "https://www.persistent.com/",
+      "status": "directory_membership_unverified",
+      "tier": null
+    },
+    {
+      "ecosystem": "sap",
+      "name": "Birlasoft",
+      "country": "IN",
+      "career_page": "https://jobs.birlasoft.com/",
+      "status": "directory_membership_unverified",
+      "tier": null
+    },
+    {
+      "ecosystem": "databricks",
+      "name": "Data Reply",
+      "country": "DE",
+      "career_page": "https://www.reply.com/data-reply/en/careers",
+      "status": "directory_membership_unverified",
+      "tier": null
+    },
+    {
+      "ecosystem": "databricks",
+      "name": "inovex",
+      "country": "DE",
+      "career_page": "https://www.inovex.de/de/karriere/stellenangebote/",
+      "status": "directory_membership_unverified",
+      "tier": null
+    },
+    {
+      "ecosystem": "databricks",
+      "name": "STATWORX",
+      "country": "DE",
+      "career_page": "https://statworx.jobs.personio.de/",
+      "status": "directory_membership_unverified",
+      "tier": null
+    },
+    {
+      "ecosystem": "databricks",
+      "name": "Infotion",
+      "country": "DE",
+      "career_page": "https://infotion.com/",
+      "status": "directory_membership_unverified",
+      "tier": null
+    },
+    {
+      "ecosystem": "databricks",
+      "name": "Keyrus",
+      "country": "DE",
+      "career_page": "https://keyrus.com/",
+      "status": "directory_membership_unverified",
+      "tier": null
+    },
+    {
+      "ecosystem": "databricks",
+      "name": "Avanade",
+      "country": "DE",
+      "career_page": "https://www.avanade.com/",
+      "status": "directory_membership_unverified",
+      "tier": null
+    },
+    {
+      "ecosystem": "databricks",
+      "name": "Capgemini",
+      "country": "DE",
+      "career_page": "https://www.capgemini.com/de-de/karriere/jobs/",
+      "status": "directory_membership_unverified",
+      "tier": null
+    },
+    {
+      "ecosystem": "databricks",
+      "name": "Accenture",
+      "country": "DE",
+      "career_page": "https://accenture.wd103.myworkdayjobs.com/en-US/AccentureCareers",
+      "status": "directory_membership_unverified",
+      "tier": null
+    }
+  ]
+}
