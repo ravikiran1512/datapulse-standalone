@@ -14,12 +14,14 @@ import os
 from collections import Counter
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 import httpx
 from datapulse_ingestion.connectors import CONNECTORS, Fetcher
 from datapulse_ingestion.models import RawJob
 from datapulse_ingestion.profiles import (normalize_for_profiles, PERSONA_IDS,
     SAP_EXPERIENCED, SAP_STUDENT, DE_JUNIOR)
+from app.link_checker import inspect_link, safe_ats_url
 
 ROOT=Path(__file__).resolve().parents[3]
 CRITERIA={"filters":{"min_distinct_tech_tags":3,"english_friendly_only":True,
@@ -51,12 +53,50 @@ def bool_arg(value:str)->bool:
     raise argparse.ArgumentTypeError('Expected true or false')
 
 
-def eligible_boards(path:Path,source:str|None=None,board_filter:str|None=None)->list[dict]:
+def eligible_boards(path:Path,source:str|None=None,board_filter:str|None=None,
+                    approved_only:bool=False)->list[dict]:
     data=json.loads(path.read_text(encoding='utf-8'))
     boards=data['boards'] if isinstance(data,dict) else data
     return [x for x in boards if x.get('enabled')
+            and (not approved_only or x.get('auto_import_approved') is True)
             and (not source or x.get('type','').lower()==source.lower())
             and (not board_filter or board_filter.lower() in (x.get('board','')+' '+x.get('company','')).lower())]
+
+
+SOURCE_PLATFORMS={
+    'workday':'Workday','personio':'Personio','smartrecruiters':'SmartRecruiters',
+    'greenhouse':'Greenhouse','lever':'Lever','ashby':'Ashby',
+}
+
+
+def approved_source_url(raw:RawJob,board:dict)->bool:
+    """A valid ATS hostname alone does not prove the link belongs to this employer."""
+    kind=board.get('type','').lower()
+    if (board.get('auto_import_approved') is not True or not board.get('enabled')
+            or raw.company_name!=board.get('company')
+            or raw.source_platform!=SOURCE_PLATFORMS.get(kind)
+            or not safe_ats_url(raw.job_url)):
+        return False
+    p=urlsplit(raw.job_url)
+    host=(p.hostname or '').lower()
+    path=p.path.lower()
+    token=str(board.get('board','')).lower()
+    if kind=='workday':
+        career=urlsplit(board.get('career_url',''))
+        parts=[x for x in career.path.split('/') if x]
+        site=parts[-1].lower() if parts else ''
+        return host==(career.hostname or '').lower() and bool(site) and path.startswith('/'+site+'/job/')
+    if kind=='personio':
+        return host==f'{token}.jobs.personio.de' and path.startswith('/job/')
+    if kind=='smartrecruiters':
+        return host=='jobs.smartrecruiters.com' and path.startswith('/'+token+'/')
+    if kind=='greenhouse':
+        return host in ('boards.greenhouse.io','job-boards.greenhouse.io') and ('/'+token+'/') in path
+    if kind=='lever':
+        return host=='jobs.lever.co' and path.startswith('/'+token+'/')
+    if kind=='ashby':
+        return host=='jobs.ashbyhq.com' and path.startswith('/'+token+'/')
+    return False
 
 
 def to_payload(raw:RawJob)->dict[str,Any]:
@@ -93,27 +133,37 @@ async def push_batches(records:list[dict],api_base_url:str,token:str)->dict:
 async def collect(source_file:Path,*,source:str|None=None,board_filter:str|None=None,
                   dry_run:bool=True,target:str='api',api_base_url:str|None=None,max_boards:int=60,
                   fixture_file:Path|None=None,expand_registry:bool=False,
-                  target_profiles:str|None=None,board_offset:int=0)->dict:
+                  target_profiles:str|None=None,board_offset:int=0,
+                  approved_only:bool=False,verify_links:bool=False)->dict:
+    if not dry_run and not approved_only:
+        raise ValueError('Production writes require the explicit approved-source allowlist')
+    if not dry_run and fixture_file:
+        raise ValueError('Production writes cannot use synthetic fixture data')
+    verify_links=verify_links or not dry_run
     selected=resolve_profiles(target_profiles)
-    boards=eligible_boards(source_file,source,board_filter)
+    boards=eligible_boards(source_file,source,board_filter,approved_only=approved_only)
     # Legacy 11 sources remain the default for the scheduled scanner until
     # the expanded registry has been benchmarked and reviewed.
-    if not expand_registry and not source and not board_filter:
+    if not expand_registry and not approved_only and not source and not board_filter:
         boards=boards[:11]
     if boards and board_offset:
         board_offset=board_offset%len(boards)
         boards=boards[board_offset:]+boards[:board_offset]
     boards=boards[:max_boards]
-    summary={'dry_run':dry_run,'expanded_registry':expand_registry,
+    if approved_only and not boards:
+        raise ValueError('No enabled, explicitly approved ATS sources are configured')
+    summary={'dry_run':dry_run,'expanded_registry':expand_registry,'approved_only':approved_only,
              'target_profiles':list(selected),'per_profile':{p:{'accepted':0,'samples':[]} for p in selected},
              'board_results':[],'boards_attempted':len(boards),'boards_succeeded':0,
              'jobs_seen':0,'accepted':0,'rejected':{},'errors':{},'inserted':0,'updated':0,
-             'server_rejected':0,'sample_jobs':[]}
+             'server_rejected':0,'links_verified':0,'sample_jobs':[]}
     if fixture_file and len(boards)!=1:raise ValueError('Fixture mode needs exactly one selected board')
     accepted=[]
+    seen_sources=set()
+    link_client=None
     for board in boards:
         label=f"{board['type']}:{board['company']}"
-        board_result={'board':label,'seen':0,'accepted':0,'status':'pending'}
+        board_result={'board':label,'seen':0,'accepted':0,'links_verified':0,'status':'pending'}
         try:
             connector=CONNECTORS[board['type']]
             if fixture_file:
@@ -122,7 +172,13 @@ async def collect(source_file:Path,*,source:str|None=None,board_filter:str|None=
                     def get(self,*a,**kw):return json.loads(fixture_file.read_text())
                 fetched=connector(board,FixtureFetcher())
             else:
-                fetched=await asyncio.to_thread(connector,board,Fetcher())
+                def fetch_jobs():
+                    fetcher=Fetcher()
+                    try:
+                        return connector(board,fetcher)
+                    finally:
+                        fetcher.client.close()
+                fetched=await asyncio.to_thread(fetch_jobs)
             summary['boards_succeeded']+=1
             summary['jobs_seen']+=len(fetched)
             board_result.update({'seen':len(fetched),'status':'ok'})
@@ -135,6 +191,29 @@ async def collect(source_file:Path,*,source:str|None=None,board_filter:str|None=
                 if not matched:
                     summary['rejected']['outside_selected_profiles']=summary['rejected'].get('outside_selected_profiles',0)+1
                     continue
+                if approved_only and not approved_source_url(raw,board):
+                    summary['rejected']['source_url_not_approved']=summary['rejected'].get('source_url_not_approved',0)+1
+                    continue
+                if approved_only and raw.source_key in seen_sources:
+                    summary['rejected']['duplicate_source_job']=summary['rejected'].get('duplicate_source_job',0)+1
+                    continue
+                if approved_only and (board_result['accepted']>=min(10,max(1,int(board.get('max_auto_import',5))))
+                                      or len(accepted)>=25):
+                    summary['rejected']['daily_import_limit']=summary['rejected'].get('daily_import_limit',0)+1
+                    continue
+                if verify_links:
+                    if link_client is None:
+                        link_client=httpx.AsyncClient(headers={'User-Agent':'DataPulse/2.1 verified-import'},
+                                                       follow_redirects=False)
+                    verdict=await inspect_link(raw.job_url,link_client)
+                    if verdict.status!='live':
+                        reason='link_'+verdict.status
+                        summary['rejected'][reason]=summary['rejected'].get(reason,0)+1
+                        continue
+                    summary['links_verified']+=1
+                    board_result['links_verified']+=1
+                if approved_only:
+                    seen_sources.add(raw.source_key)
                 accepted.append(to_payload(raw))
                 board_result['accepted']+=1
                 for persona in matched:
@@ -153,6 +232,8 @@ async def collect(source_file:Path,*,source:str|None=None,board_filter:str|None=
             board_result.update({'status':'failed','error':error})
         finally:
             summary['board_results'].append(board_result)
+    if link_client is not None:
+        await link_client.aclose()
     summary['accepted']=len(accepted)
     if not dry_run and summary['accepted']:
         if target!='api':raise ValueError('Production writes require authenticated API target')
@@ -169,7 +250,7 @@ def main():
     parser.add_argument('--sources',default=None,
         help='Read-only sources: sap_partners,databricks_partners,softgarden,successfactors')
     parser.add_argument('--output-report',type=Path,default=None,
-        help='Write JSON read-only partner verification report to this local path')
+        help='Write JSON run summary to a local path; never includes credentials')
     parser.add_argument('--board',default=None)
     parser.add_argument('--max-boards',type=int,default=60)
     parser.add_argument('--expand-registry',action='store_true',help='Include newly verified public ATS feeds')
@@ -183,6 +264,10 @@ def main():
         help='True by default; --dry-run=false requires --apply')
     parser.add_argument('--apply',action='store_true',
         help='Explicit production write opt-in; requires authenticated API and --dry-run=false')
+    parser.add_argument('--approved-only',action='store_true',
+        help='Restrict to enabled boards with auto_import_approved=true; required for writes')
+    parser.add_argument('--verify-links',action='store_true',
+        help='Check official ATS application URLs in dry runs; always on for writes')
     parser.add_argument('--target',default='api',choices=['api'])
     parser.add_argument('--api-base-url',default=os.getenv('API_BASE_URL'))
     parser.add_argument('--fixture',type=Path,default=None,help='Local synthetic test fixture (never live data)')
@@ -218,10 +303,16 @@ def main():
         parser.error('Refusing production writes without --apply')
     if args.apply and args.dry_run:
         parser.error('To apply writes, also specify --dry-run=false')
+    if not args.dry_run and not args.approved_only:
+        parser.error('Production writes require --approved-only')
     report=asyncio.run(collect(args.source_file,source=args.source,board_filter=args.board,
          dry_run=args.dry_run,target=args.target,api_base_url=args.api_base_url,
          max_boards=args.max_boards,fixture_file=args.fixture,
-         expand_registry=args.expand_registry,target_profiles=args.target_profiles))
+         expand_registry=args.expand_registry,target_profiles=args.target_profiles,
+         approved_only=args.approved_only,verify_links=args.verify_links))
+    if args.output_report:
+        args.output_report.parent.mkdir(parents=True,exist_ok=True)
+        args.output_report.write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
     print(json.dumps(report,ensure_ascii=False,indent=2))
     if report['errors'] or report['boards_succeeded']==0 or (not args.dry_run and report['accepted'] and report['inserted']+report['updated']<report['accepted']):
         raise SystemExit(2)

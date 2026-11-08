@@ -1,4 +1,4 @@
-name: Daily Direct-ATS Job Ingestion
+name: Daily Approved ATS Job Ingestion
 on:
   schedule:
     - cron: '17 5 * * *' # 05:17 UTC; not guaranteed exact execution time
@@ -23,14 +23,29 @@ jobs:
           python-version: '3.12'
           cache: 'pip'
           cache-dependency-path: backend/requirements.txt
-      - name: Install
-        run: pip install -r backend/requirements.txt
-      - name: Run configured public ATS collectors
+      - name: Install and test
+        run: |
+          python -m pip install -r backend/requirements.txt pytest==9.2.0 pytest-asyncio==1.4.1.post1
+          PYTHONPATH=backend python -m pytest -q backend/tests
+      - name: Import only approved, link-verified ATS postings
         env:
           API_BASE_URL: ${{ secrets.DATAPULSE_API_BASE_URL }}
           INGEST_TOKEN: ${{ secrets.DATAPULSE_INGEST_TOKEN }}
         run: |
-          test -n "$API_BASE_URL"
-          test -n "$INGEST_TOKEN"
+          set -euo pipefail
+          if [ -z "$API_BASE_URL" ] || [ -z "$INGEST_TOKEN" ]; then
+            echo 'Missing DATAPULSE_API_BASE_URL or DATAPULSE_INGEST_TOKEN repository secret' >&2
+            exit 1
+          fi
           cd backend
-          python -m app.collectors.run_ingestion --target api
+          python -m app.collectors.run_ingestion --target api \
+            --approved-only --dry-run=false --apply \
+            --output-report ../ingestion-report.json
+      - name: Keep bounded ingestion report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: datapulse-approved-ats-report
+          path: ingestion-report.json
+          retention-days: 14
+          if-no-files-found: warn

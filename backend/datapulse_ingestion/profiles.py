@@ -67,6 +67,12 @@ EXPERIENCE_PREFIX = re.compile(r'\b(?:experience|erfahrung|berufserfahrung)\s*[:
 EXPERIENCE_REQUIREMENT = re.compile(r'\b(?:require(?:d|ments?)?|must\s+have|looking\s+for|you\s+have|bring|possess|need|minimum|mindestens|at\s+least)\b',re.I)
 EXPERIENCE_CONTEXT = re.compile(r'\b(?:experience|erfahrung|berufserfahrung|professional|engineering|basis|requirements?|qualifications?|must\s+have|years?\s+in\s+the\s+(?:role|field))\b',re.I)
 EXPERIENCE_BARE = re.compile(r'\b(\d{1,2})\s*(?:years?|yrs?|jahre[n]?)\b',re.I)
+# Some ATS metadata labels a permanent role "entry-level / 1–2 years" while
+# the employer's prose demands several years of independent professional work.
+# Treat that disagreement as uncertain rather than promoting it to a student job.
+EXPERIENCED_PROSE = re.compile(
+    r'\b(?:mehrj[aä]hrige\w*|langj[aä]hrige\w*)\s+(?:(?:praktische|relevante|einschl[aä]gige)\s+)?(?:erfahrung|berufserfahrung)\b'
+    r'|\b(?:several|multiple|many)\s+years\s+(?:of\s+)?(?:relevant\s+|professional\s+)?experience\b', re.I)
 
 @dataclass(frozen=True)
 class Experience:
@@ -221,6 +227,10 @@ def normalize_for_profiles(raw:RawJob)->tuple[Job|None,str]:
     if location_country is None:return None,'unverified_target_country'
     exp=combine_structured_experience(raw,parse_experience(raw.description))
     personas=persona_matches(raw,location_country,exp)
+    contract=f'{raw.job_title} {raw.employment_type or ""}'
+    if (SAP_STUDENT in personas and not (STUDENT.search(contract) or INTERN.search(contract))
+            and EXPERIENCED_PROSE.search(raw.description or '')):
+        return None,'experienced_prose_conflicts_with_entry_level'
     if exp.evidence and exp.minimum is None and SAP_STUDENT not in personas:
         return None,'ambiguous_experience_evidence'
     if not personas:return None,'not_eligible_for_selected_personas'

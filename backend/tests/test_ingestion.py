@@ -13,6 +13,7 @@ def test_source_category():
     assert source_type_for('Greenhouse')=='direct_ats'
     assert source_type_for('LinkedIn')=='job_board'
     assert 'ON CONFLICT' in UPSERT_SQL and 'official_apply_url' in UPSERT_SQL
+    assert "jobs.link_status='live' THEN 'live'" in UPSERT_SQL
 
 @pytest.mark.parametrize('url',['http://example.com','https://localhost/private','https://user:pass@example.com'])
 def test_reject_bad_urls(url):

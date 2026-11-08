@@ -65,7 +65,14 @@ DO UPDATE SET
  salary_range=COALESCE(EXCLUDED.salary_range,jobs.salary_range),
  salary_currency=COALESCE(EXCLUDED.salary_currency,jobs.salary_currency),
  salary_evidence=COALESCE(EXCLUDED.salary_evidence,jobs.salary_evidence),
- link_status='unchecked',link_failures=0,link_detail=NULL,
+ -- Do not discard a manually/automatically confirmed live link when the same
+ -- requisition is seen again. Changed URLs and previously closed links must
+ -- be checked anew by scheduled maintenance.
+ link_status=CASE WHEN jobs.official_apply_url=EXCLUDED.official_apply_url
+                   AND jobs.link_status='live' THEN 'live' ELSE 'unchecked' END,
+ link_failures=0,
+ link_detail=CASE WHEN jobs.official_apply_url=EXCLUDED.official_apply_url
+                   AND jobs.link_status='live' THEN jobs.link_detail ELSE NULL END,
  match_score=GREATEST(jobs.match_score,EXCLUDED.match_score),
  description=CASE WHEN length(COALESCE(EXCLUDED.description,''))>length(COALESCE(jobs.description,''))
              THEN EXCLUDED.description ELSE jobs.description END,

@@ -85,6 +85,8 @@
       "company": "GAMBIT Consulting",
       "board": "gambit",
       "enabled": true,
+      "auto_import_approved": true,
+      "max_auto_import": 5,
       "countries": [
         "DE"
       ],
@@ -107,6 +109,8 @@
       "company": "Nagarro",
       "board": "Nagarro1",
       "enabled": true,
+      "auto_import_approved": true,
+      "max_auto_import": 5,
       "countries": [
         "DE",
         "IN"
@@ -193,6 +197,8 @@
       "company": "Dow",
       "career_url": "https://dow.wd1.myworkdayjobs.com/en-US/ExternalCareers",
       "enabled": true,
+      "auto_import_approved": true,
+      "max_auto_import": 5,
       "countries": [
         "DE",
         "IN"
@@ -234,6 +240,8 @@
       "company": "STATWORX",
       "board": "statworx",
       "enabled": true,
+      "auto_import_approved": true,
+      "max_auto_import": 5,
       "countries": [
         "DE"
       ],
