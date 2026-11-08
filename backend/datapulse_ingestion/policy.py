@@ -25,6 +25,13 @@ EXCLUDE_ROLE = re.compile(
     r"lead\s+architect|senior\s+architect)\b", re.I,
 )
 SENIOR = re.compile(r"\b(?:senior|sr\.|lead|chief|principal|staff|director|head)\b", re.I)
+# A title without "Senior" can still require senior-level experience.
+# Only explicit experience requirements of 7+ years are a hard exclusion.
+SENIOR_YEARS_REQUIRED = re.compile(
+    r"\\b(?:at\\s+least|minimum(?:\\s+of)?|over|more\\s+than)\\s+(?:[7-9]|[1-9]\\d)\\s*\\+?\\s*(?:years?|yrs?)\\b"
+    r"|\\b(?:[7-9]|[1-9]\\d)\\s*\\+\\s*(?:years?|yrs?)\\s+(?:of|in|working|professional|experience)\\b",
+    re.I,
+)
 STUDENT = re.compile(r"\b(?:werkstudent(?:in)?|working\s+student|student\s+assistant|studentische\s+hilfskraft)\b", re.I)
 INTERN = re.compile(r"\b(?:intern(?:ship)?|praktik(?:ant|antin|um)|trainee)\b", re.I)
 JUNIOR = re.compile(r"\b(?:junior|entry[-\s]?level|graduate|berufseinstieg|einsteiger)\b", re.I)
@@ -106,7 +113,11 @@ def level(title: str, explicit: str | None = None) -> str:
 def language(text: str) -> tuple[str, bool]:
     en = bool(ENGLISH.search(text))
     de = bool(GERMAN.search(text))
-    de_hard = bool(GERMAN_MANDATORY.search(text))
+    de_hard = bool(GERMAN_MANDATORY.search(text) or re.search(
+        r"\\b(?:very\\s+good|excellent|strong|advanced|fluent|professional)\\s+(?:written\\s+and\\s+spoken\\s+)?(?:german|deutsch\\w*)\\b"
+        r"|\\b(?:sehr\\s+gute|ausgezeichnete|flie\\u00dfende|verhandlungssichere)\\s+deutsch\\w*\\b",
+        text, re.I,
+    ))
     if en and de: return "Bilingual",not de_hard
     if de: return "German",False
     if en: return "English",True
@@ -161,7 +172,7 @@ def normalize_job(raw: RawJob, criteria: dict) -> tuple[Job | None, str]:
     title=clean(raw.job_title)
     if not ROLE.search(title): return None,"not_target_engineering_title"
     if EXCLUDE_ROLE.search(title):return None,"hard_excluded_role"
-    if SENIOR.search(title) and filters.get("exclude_senior",True):return None,"above_target_level"
+    if filters.get("exclude_senior",True) and (SENIOR.search(title) or SENIOR_YEARS_REQUIRED.search(raw.description)):\n        return None,"above_target_level"
     for word in filters.get("exclude_keywords",[]):
         if re.search(r"(?<!\w)"+re.escape(word)+r"(?!\w)",title,re.I): return None,"excluded_title_keyword"
     loc=normalize_location(raw.location,raw.country_code,remote_eligible_germany=raw.remote_eligible_germany)
