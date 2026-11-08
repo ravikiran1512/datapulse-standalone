@@ -4,6 +4,12 @@ export interface Job {
   company_name:string;
   location:string;
   region:string|null;
+  country_code:string|null;
+  country:string|null;
+  min_experience_years:number|null;
+  max_experience_years:number|null;
+  experience_evidence:string|null;
+  persona_tags:string[];
   work_mode:string;
   employment_type:string;
   level:string;
