@@ -166,13 +166,17 @@ def main():
     parser=argparse.ArgumentParser(description='DataPulse nationwide public ATS collection')
     parser.add_argument('--source-file',type=Path,default=ROOT/'config'/'verified-boards.json')
     parser.add_argument('--source',choices=sorted(CONNECTORS)+['partner_directories'],default=None)
+    parser.add_argument('--sources',default=None,
+        help='Read-only sources: sap_partners,databricks_partners,softgarden,successfactors')
+    parser.add_argument('--output-report',type=Path,default=None,
+        help='Write JSON read-only partner verification report to this local path')
     parser.add_argument('--board',default=None)
     parser.add_argument('--max-boards',type=int,default=60)
     parser.add_argument('--expand-registry',action='store_true',help='Include newly verified public ATS feeds')
     parser.add_argument('--ecosystems',default='sap,databricks',help='Only for partner_directories')
     parser.add_argument('--profiles',default=None,help='Alias for --target-profiles in partner mode')
-    parser.add_argument('--max-partners',type=int,default=6)
-    parser.add_argument('--max-feeds',type=int,default=3)
+    parser.add_argument('--max-partners',type=int,default=16)
+    parser.add_argument('--max-feeds',type=int,default=16)
     parser.add_argument('--target-profiles',default=None,
         help='Comma-separated aliases: sap_basis_5y,sap_basis_student,data_eng_junior')
     parser.add_argument('--dry-run',type=bool_arg,nargs='?',const=True,default=True,
@@ -183,20 +187,32 @@ def main():
     parser.add_argument('--api-base-url',default=os.getenv('API_BASE_URL'))
     parser.add_argument('--fixture',type=Path,default=None,help='Local synthetic test fixture (never live data)')
     args=parser.parse_args()
-    if args.source=='partner_directories':
+    if args.sources or args.source=='partner_directories':
         if not args.dry_run or args.apply:
-            parser.error('Partner directory ingestion is read-only; --apply is disabled')
-        from .partner_directories import scan_partner_targets
-        ecosystems={x.strip().lower() for x in args.ecosystems.split(',') if x.strip()}
-        if not ecosystems or not ecosystems <= {'sap','databricks'}:
-            parser.error('Use --ecosystems sap,databricks or a subset')
-        selected=resolve_profiles(args.profiles or args.target_profiles)
-        directory_targets=json.loads((ROOT/'config/partner_directory_targets.json').read_text())
+            parser.error('Partner verification is strictly read-only; --apply disabled')
+        from .bounded_partner_scan import scan_bounded, SOURCES
+        if args.sources:
+            sources={x.strip().lower() for x in args.sources.split(',') if x.strip()}
+            if not sources or not sources <= set(SOURCES):
+                parser.error('Use --sources sap_partners,databricks_partners,softgarden,successfactors')
+        else:
+            ecosystems={x.strip().lower() for x in args.ecosystems.split(',') if x.strip()}
+            if not ecosystems or not ecosystems <= {'sap','databricks'}:
+                parser.error('Use --ecosystems sap,databricks or a subset')
+            sources=({'sap_partners'} if 'sap' in ecosystems else set()) | (
+                     {'databricks_partners'} if 'databricks' in ecosystems else set())
+        chosen=resolve_profiles(args.profiles or args.target_profiles)
+        targets=json.loads((ROOT/'config/partner_directory_targets.json').read_text())
         verified=json.loads((ROOT/'config/verified-boards.json').read_text())
-        result=asyncio.run(scan_partner_targets(directory_targets['targets'],verified['boards'],
-            ecosystems=ecosystems,profiles=selected,
-            max_partners=max(0,min(args.max_partners,20)),max_feeds=max(0,min(args.max_feeds,5))))
-        print(json.dumps(result,ensure_ascii=False,indent=2))
+        report=asyncio.run(scan_bounded(
+            targets['targets'],verified['boards'],sources=sources,profiles=chosen,
+            max_partners=max(0,min(args.max_partners,32)),
+            max_feeds=max(0,min(args.max_feeds,16))))
+        rendered=json.dumps(report,ensure_ascii=False,indent=2)
+        if args.output_report:
+            args.output_report.parent.mkdir(parents=True,exist_ok=True)
+            args.output_report.write_text(rendered+'\n',encoding='utf-8')
+        print(rendered)
         return
     if not args.dry_run and not args.apply:
         parser.error('Refusing production writes without --apply')
