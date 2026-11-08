@@ -9,6 +9,7 @@ from urllib.parse import urlsplit
 
 from datapulse_ingestion.models import Job
 from datapulse_ingestion.matching import skill_cosine
+from datapulse_ingestion.metadata import extract_metadata
 
 
 def identity(value: str) -> str:
@@ -42,12 +43,13 @@ INSERT INTO datapulse.jobs (
  normalized_location,work_mode,employment_type,level,domain_category,language_required,
  is_english_friendly,description,tech_stack,match_score,official_apply_url,source_name,
  source_type,source_key,date_posted,date_evidence,country_code,country,
- min_experience_years,max_experience_years,experience_evidence,persona_tags,last_seen_at,last_verified_at
+ min_experience_years,max_experience_years,experience_evidence,persona_tags,
+ visa_supported,relocation_assistance,salary_range,salary_currency,salary_evidence,last_seen_at,last_verified_at
 ) VALUES (
  $1,$2,$3,$4,$5,$6,$7,$8::datapulse.work_mode_enum,$9,
  $10::datapulse.level_enum,$11,$12,$13,$14,$15::text[],$16,$17,$18,
  $19::datapulse.source_type_enum,$20,$21,$22,$23,$24,
- $25,$26,$27,$28::text[],now(),now()
+ $25,$26,$27,$28::text[],$29,$30,$31,$32,$33,now(),now()
 )
 ON CONFLICT (normalized_company_name,normalized_job_title,normalized_location)
 DO UPDATE SET
@@ -58,6 +60,12 @@ DO UPDATE SET
  max_experience_years=EXCLUDED.max_experience_years,
  experience_evidence=EXCLUDED.experience_evidence,
  persona_tags=EXCLUDED.persona_tags,
+ visa_supported=EXCLUDED.visa_supported,
+ relocation_assistance=EXCLUDED.relocation_assistance,
+ salary_range=COALESCE(EXCLUDED.salary_range,jobs.salary_range),
+ salary_currency=COALESCE(EXCLUDED.salary_currency,jobs.salary_currency),
+ salary_evidence=COALESCE(EXCLUDED.salary_evidence,jobs.salary_evidence),
+ link_status='unchecked',link_failures=0,link_detail=NULL,
  match_score=GREATEST(jobs.match_score,EXCLUDED.match_score),
  description=CASE WHEN length(COALESCE(EXCLUDED.description,''))>length(COALESCE(jobs.description,''))
              THEN EXCLUDED.description ELSE jobs.description END,
@@ -90,6 +98,7 @@ async def upsert_job(pool: Any, job: Job, description: str = '') -> tuple[str, s
     if not all((name_key,title_key,location_key)):
         raise ValueError('Company, title and country-qualified location required')
     score = job.technical_match_score if job.technical_match_score is not None else skill_cosine(job.tech_stack)
+    meta=extract_metadata(description)
     params = [
         job.job_title,job.company_name,job.location,job.city,name_key,title_key,location_key,
         job.work_model if job.work_model in ('Remote','Hybrid','On-site') else 'Unknown',
@@ -99,6 +108,7 @@ async def upsert_job(pool: Any, job: Job, description: str = '') -> tuple[str, s
         job.source_platform,stype,job.source_key,(datetime.strptime(job.date_posted, "%Y-%m-%d").date() if job.date_posted else None),job.date_evidence,
         job.country_code,('Germany' if job.country_code=='DE' else 'India' if job.country_code=='IN' else None),
         job.min_experience_years,job.max_experience_years,job.experience_evidence,job.persona_tags,
+        meta.visa_supported,meta.relocation_assistance,meta.salary_range,meta.salary_currency,meta.salary_evidence,
     ]
     async with pool.acquire() as conn:
         async with conn.transaction():
