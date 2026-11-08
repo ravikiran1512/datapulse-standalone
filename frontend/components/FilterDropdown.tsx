@@ -1,6 +1,6 @@
 'use client';
 import { useEffect,useRef,useState } from 'react';
-import type { KeyboardEvent } from 'react';
+import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { Check,ChevronDown } from 'lucide-react';
 
 type Option={value:string;label:string};
@@ -26,7 +26,7 @@ export function FilterDropdown({label,value,options,onChange,minWidth}:Props){
   if(open)menu.current?.querySelector<HTMLElement>(`[data-idx="${highlight}"]`)?.scrollIntoView({block:'nearest'});
  },[highlight,open]);
  const choose=(option:Option)=>{onChange(option.value);setOpen(false);button.current?.focus()};
- const keys=(e:KeyboardEvent)=>{
+ const keys=(e:ReactKeyboardEvent<HTMLDivElement>)=>{
   if(['ArrowDown','ArrowUp','Home','End','Enter',' '].includes(e.key))e.preventDefault();
   if(!open&&(e.key==='ArrowDown'||e.key==='Enter'||e.key===' ')){setOpen(true);return;}
   if(!open)return;
