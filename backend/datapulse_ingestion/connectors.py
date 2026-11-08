@@ -224,6 +224,8 @@ def workday(board:dict,f:Fetcher)->list[RawJob]:
             batch=data.get("jobPostings") or []
             if total is None:total=int(data.get("total",0))
             for j in batch:
+                if len(out) >= max(1,int(board.get("max_detail_jobs",999))):
+                    return out
                 path=j.get("externalPath") or ""
                 if not path.startswith("/job/") or path in seen or not (ROLE.search(j.get("title","")) or SAP_BASIS_ROLE.search(j.get("title",""))):continue
                 seen.add(path)
@@ -261,6 +263,8 @@ def smartrecruiters(board:dict,f:Fetcher)->list[RawJob]:
             data=f.get(api,params={"q":query,"limit":100,"offset":offset},expected_host=host)
             content=data.get("content") or []
             for j in content:
+                if len(out) >= max(1,int(board.get("max_detail_jobs",999))):
+                    return out
                 identity=str(j.get("id") or "")
                 title=j.get("name") or ""
                 if not identity or identity in seen or not (ROLE.search(title) or SAP_BASIS_ROLE.search(title)):
