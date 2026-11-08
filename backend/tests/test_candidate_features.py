@@ -29,6 +29,18 @@ def test_visa_and_language_conservative():
     assert not z.visa_supported
 
 
+@pytest.mark.parametrize('description,expected',[
+    ('No relocation support is provided for this role.', False),
+    ('Relocation assistance not available.', False),
+    ('Relocation support is not offered.', False),
+    ('We do not provide relocation assistance.', False),
+    ('Relocation assistance available.', True),
+    ('We cover your relocation.', True),
+])
+def test_relocation_requires_affirmative_evidence(description,expected):
+    assert extract_metadata(description).relocation_assistance is expected
+
+
 def test_fit_breakdown_not_claim_personal_resume():
     b=match_breakdown('Data Engineering',['Python','SQL'],[DE_JUNIOR],0,2)
     assert b['matched_skills']==['Python','SQL'] and 'Databricks' in b['missing_or_recommended_skills']
