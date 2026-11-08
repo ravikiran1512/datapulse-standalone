@@ -16,6 +16,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 
 from .collectors.run_ingestion import ROOT, collect
+from .link_checker import check_stale_jobs
 
 router = APIRouter(prefix="/api/v1/internal", tags=["internal"])
 log = logging.getLogger("datapulse.scheduled_scan")
@@ -50,6 +51,14 @@ async def _execute_scan(pool, run_id) -> None:
             json.dumps(result["rejected"]),
             json.dumps(result["errors"]),
         )
+        # Stale-link maintenance only; does not insert new jobs. Limit per day.
+        # Disable by setting ENABLE_STALE_CHECKS=false in the Render environment.
+        if os.getenv('ENABLE_STALE_CHECKS','true').lower() == 'true':
+            try:
+                link_report=await check_stale_jobs(pool,limit=25)
+                log.info('Stale-link maintenance: %s',link_report)
+            except Exception:
+                log.exception('Stale-link maintenance failed; listings preserved')
         log.info(
             "ATS read-only scan finished: attempted=%d, succeeded=%d, seen=%d, eligible=%d, failures=%d",
             result["boards_attempted"], result["boards_succeeded"],
