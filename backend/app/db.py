@@ -41,15 +41,23 @@ INSERT INTO datapulse.jobs (
  job_title,company_name,location,region,normalized_company_name,normalized_job_title,
  normalized_location,work_mode,employment_type,level,domain_category,language_required,
  is_english_friendly,description,tech_stack,match_score,official_apply_url,source_name,
- source_type,source_key,date_posted,date_evidence,last_seen_at,last_verified_at
+ source_type,source_key,date_posted,date_evidence,country_code,country,
+ min_experience_years,max_experience_years,experience_evidence,persona_tags,last_seen_at,last_verified_at
 ) VALUES (
  $1,$2,$3,$4,$5,$6,$7,$8::datapulse.work_mode_enum,$9,
  $10::datapulse.level_enum,$11,$12,$13,$14,$15::text[],$16,$17,$18,
- $19::datapulse.source_type_enum,$20,$21,$22,now(),now()
+ $19::datapulse.source_type_enum,$20,$21,$22,$23,$24,
+ $25,$26,$27,$28::text[],now(),now()
 )
 ON CONFLICT (normalized_company_name,normalized_job_title,normalized_location)
 DO UPDATE SET
  tech_stack=(SELECT ARRAY(SELECT DISTINCT tag FROM unnest(jobs.tech_stack || EXCLUDED.tech_stack) AS tech(tag))),
+ country_code=EXCLUDED.country_code,
+ country=EXCLUDED.country,
+ min_experience_years=EXCLUDED.min_experience_years,
+ max_experience_years=EXCLUDED.max_experience_years,
+ experience_evidence=EXCLUDED.experience_evidence,
+ persona_tags=EXCLUDED.persona_tags,
  match_score=GREATEST(jobs.match_score,EXCLUDED.match_score),
  description=CASE WHEN length(COALESCE(EXCLUDED.description,''))>length(COALESCE(jobs.description,''))
              THEN EXCLUDED.description ELSE jobs.description END,
@@ -81,13 +89,16 @@ async def upsert_job(pool: Any, job: Job, description: str = '') -> tuple[str, s
     location_key = identity(job.location)
     if not all((name_key,title_key,location_key)):
         raise ValueError('Company, title and country-qualified location required')
-    score = skill_cosine(job.tech_stack)
+    score = job.technical_match_score if job.technical_match_score is not None else skill_cosine(job.tech_stack)
     params = [
         job.job_title,job.company_name,job.location,job.city,name_key,title_key,location_key,
         job.work_model if job.work_model in ('Remote','Hybrid','On-site') else 'Unknown',
         job.employment_type,job.job_level,job.domain_category,job.language_required,
-        job.language_required in ('English','Bilingual'),description,job.tech_stack,score,url,
+        (job.is_english_friendly if job.is_english_friendly is not None else job.language_required in ('English','Bilingual')),
+        description,job.tech_stack,score,url,
         job.source_platform,stype,job.source_key,(datetime.strptime(job.date_posted, "%Y-%m-%d").date() if job.date_posted else None),job.date_evidence,
+        job.country_code,('Germany' if job.country_code=='DE' else 'India' if job.country_code=='IN' else None),
+        job.min_experience_years,job.max_experience_years,job.experience_evidence,job.persona_tags,
     ]
     async with pool.acquire() as conn:
         async with conn.transaction():
