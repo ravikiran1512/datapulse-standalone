@@ -28,8 +28,8 @@ SENIOR = re.compile(r"\b(?:senior|sr\.|lead|chief|principal|staff|director|head)
 # A title without "Senior" can still require senior-level experience.
 # Only explicit experience requirements of 7+ years are a hard exclusion.
 SENIOR_YEARS_REQUIRED = re.compile(
-    r"\\b(?:at\\s+least|minimum(?:\\s+of)?|over|more\\s+than)\\s+(?:[7-9]|[1-9]\\d)\\s*\\+?\\s*(?:years?|yrs?)\\b"
-    r"|\\b(?:[7-9]|[1-9]\\d)\\s*\\+\\s*(?:years?|yrs?)\\s+(?:of|in|working|professional|experience)\\b",
+    r"\b(?:at\s+least|minimum(?:\s+of)?|over|more\s+than)\s+(?:[7-9]|[1-9]\d)\s*\+?\s*(?:years?|yrs?)\b"
+    r"|\b(?:[7-9]|[1-9]\d)\s*\+\s*(?:years?|yrs?)\s+(?:of|in|working|professional|experience)\b",
     re.I,
 )
 STUDENT = re.compile(r"\b(?:werkstudent(?:in)?|working\s+student|student\s+assistant|studentische\s+hilfskraft)\b", re.I)
@@ -114,8 +114,8 @@ def language(text: str) -> tuple[str, bool]:
     en = bool(ENGLISH.search(text))
     de = bool(GERMAN.search(text))
     de_hard = bool(GERMAN_MANDATORY.search(text) or re.search(
-        r"\\b(?:very\\s+good|excellent|strong|advanced|fluent|professional)\\s+(?:written\\s+and\\s+spoken\\s+)?(?:german|deutsch\\w*)\\b"
-        r"|\\b(?:sehr\\s+gute|ausgezeichnete|flie\\u00dfende|verhandlungssichere)\\s+deutsch\\w*\\b",
+        r"\b(?:very\s+good|excellent|strong|advanced|fluent|professional)\s+(?:written\s+and\s+spoken\s+)?(?:german|deutsch\w*)\b"
+        r"|\b(?:sehr\s+gute|ausgezeichnete|flie\u00dfende|verhandlungssichere)\s+deutsch\w*\b",
         text, re.I,
     ))
     if en and de: return "Bilingual",not de_hard
