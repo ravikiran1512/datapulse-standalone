@@ -1,1 +1,99 @@
-# datapulse-standalone
+# DataPulse Standalone — Germany Data Engineering Jobs
+
+A complete **independent application codebase** for migrating DataPulse away from its existing ChatGPT Sites deployment. The old private Site and its data are **untouched**.
+
+- **Frontend:** Next.js 16 / React 19 / Tailwind CSS, dark DataPulse UI with accessible custom dropdowns.
+- **Backend:** FastAPI / asyncpg, parameterized Boolean query search, pagination, source badges, account-verified bookmark API, authenticated ingestion.
+- **Database:** isolated PostgreSQL schema `datapulse` with pgvector (`embedding vector(1536)`), stable UUIDs, source appearance history, normalized deduplication and bookmark table.
+- **Ingestion:** public Greenhouse, Lever, Ashby, Personio, Workday, SuccessFactors connectors from the previously tested ATS package; daily GitHub Actions workflow (disabled until you add GitHub secrets and publish repo).
+- **Deployment:** Render `render.yaml`, Vercel `frontend/`, optional backend Dockerfile.
+
+> **Status:** 2026-11-08: local source implementation and automated Python tests. No new Supabase project, Vercel site, Render service, GitHub repo, live ATS ingestion or data migration has been created. `npm install` timed out in this sandbox and a real Next.js build could not be verified; TSX parser checks passed. The provided initial source registry is **not** a claim that all boards are live or currently contain qualifying jobs.
+
+## Repository layout
+
+```text
+frontend/ Next.js app (copy of the familiar DataPulse UX)
+backend/app/main.py Search API, authenticated ingestion, saved-job endpoints
+backend/app/db.py Async PostgreSQL upsert and official URL precedence
+backend/app/search.py Safe quoted Boolean parser (AND / OR / NOT)
+backend/app/collectors/ Public ATS schedule runner
+backend/datapulse_ingestion/ Reused modular ATS parsers and hard matching policy
+backend/tests/ Backend API, role, URL, deduplication and search tests
+sql/schema.sql PostgreSQL / Supabase pgvector schema
+sql/verification.sql Safe validation queries
+config/verified-boards.json Named public employer board registry
+scripts/import_legacy.py Audited import from a real owner-provided Site export
+.github/workflows/ Daily scheduled ingestion job
+render.yaml Render Blueprint
+```
+
+## Local development
+
+### 1. Start a dedicated PostgreSQL database
+
+Use an **independent** Supabase or Neon PostgreSQL project, not your existing QueryQuest database. Run `sql/schema.sql` in the SQL editor or via `psql`. The script creates a private `datapulse` schema and enables `pgvector`. Never expose `DATABASE_URL` to the browser. Supabase projects created after October 2026 do not auto-expose new SQL tables to the REST Data API. This app accesses PostgreSQL from the backend instead.
+
+### 2. Start FastAPI
+
+```bash
+cd backend
+python -m venv .venv
+source .venv/bin/activate # Windows: .venv\\Scripts\\activate
+pip install -r requirements.txt
+cp .env.example .env # put real DATABASE_URL and INGEST_TOKEN here, NOT in Git
+set -a; source .env; set +a
+uvicorn app.main:app --reload --port 8000
+```
+
+Verify `http://localhost:8000/api/v1/health` reports `database_connected: true` after provisioning the database. API docs: `/docs`.
+
+### 3. Start Next.js
+
+```bash
+cd frontend
+npm install
+cp .env.example .env.local
+# NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+npm run dev
+```
+
+Visit `http://localhost:3000`. Search supports quoted phrases and Boolean `AND`, `OR`, `NOT`, with parentheses. Filters, paging, and source labels are backed by FastAPI. Saved jobs persist in browser local storage until Supabase Auth is wired to your frontend; the backend already has authenticated bookmark endpoints for future account sync.
+
+### 4. Dry-run a configured Greenhouse board
+
+```bash
+cd backend
+python -m app.collectors.run_ingestion --source greenhouse --board Superchat --dry-run
+# Completely offline synthetic test (NOT a live vacancy):
+python -m app.collectors.run_ingestion --source greenhouse --board Superchat \
+ --dry-run --fixture tests/fixtures/greenhouse-synthetic.json
+```
+
+For a real production collector, configure `API_BASE_URL` and `INGEST_TOKEN` as GitHub **Action secrets**, then run `python -m app.collectors.run_ingestion --target api` through the workflow. Ingest writes require a 32+ character bearer token and pass all filtering rules server-side.
+
+### 5. Run tests
+
+```bash
+cd backend
+pip install -r requirements-dev.txt
+PYTHONPATH=. pytest -q tests
+```
+
+## Important behavior
+
+- Ingestion excludes senior/lead/principal/PhD/director roles and non-technical BI-only positions; student, internship, junior and mid roles are eligible.
+- Germany eligibility is verified using ATS location/country signals. International remote positions are not assumed Germany-eligible.
+- At least 3 distinct engineering technologies, 2 core skills, explicit English language evidence and a technical cosine score >= 0.70 are required at write time.
+- The **technical skill cosine** is computed on a deterministic weighted technology feature vector, not the 1536-dimensional optional `embedding` column. The embedding column remains NULL until a *separate embedding provider* is configured. Do not call the technical match score a hiring probability.
+- A canonical `(normalized_company_name,normalized_job_title,normalized_location)` unique key deduplicates sources while retaining all original URLs in `job_sources`. **Two genuinely different requisitions with identical company/title/city could be merged**; extend the key with an ATS requisition number if you encounter this case.
+- A direct-ATS/company-portal URL replaces an aggregator as the preferred application link; subsequent aggregator scans cannot overwrite the preferred official URL.
+- The job record keeps a stable PostgreSQL UUID. Existing bookmarks stay attached when the canonical job is updated.
+- ATS dates and work modes not present in the underlying feed remain unknown, not invented.
+- Failed source scans are recorded as failures, not interpreted as no vacancies. Jobs are not automatically marked closed merely for being missing from a scan.
+
+## Going live
+
+Read **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)** before deploying. The source ZIP is an installable starting point, not a live replacement site. A complete cutover requires a real export of the ChatGPT Site jobs and saved favorites; the previous Site is managed in a different hosting environment.
+
+**Security:** keep secret credentials out of Git and `NEXT_PUBLIC_` variables. Restrict CORS to the actual Vercel origin. If using Supabase Auth, enable and configure your users in Supabase; the backend confirms bearer identity with Supabase Auth instead of trusting a supplied `user_id`.

@@ -1,0 +1,19 @@
+{
+ "verified_from_public_careers": "2026-11-08",
+ "note": "Source registry verified by public career-board pages; per-job availability, explicit English requirement and >=3 technologies must still pass at runtime.",
+ "boards": [
+ {"type": "greenhouse", "company": "Superchat", "board": "superchat", "enabled": true},
+ {"type": "greenhouse", "company": "Awin", "board": "awin", "enabled": true},
+ {"type": "greenhouse", "company": "Proalpha Group", "board": "proalphagroup", "enabled": true},
+ {"type": "lever", "company": "Octopus Energy Group", "board": "octoenergy", "region": "global", "enabled": true},
+ {"type": "ashby", "company": "Clera", "board": "clera", "enabled": true},
+ {"type": "ashby", "company": "Wayve", "board": "wayve", "enabled": true},
+ {"type": "personio", "company": "Dataciders SE", "board": "dataciders", "apply_url_template": "https://dataciders.jobs.personio.de/job/{id}?language=en", "enabled": true},
+ {"type": "personio", "company": "Jedox GmbH", "board": "jedox", "apply_url_template": "https://jedox.jobs.personio.de/job/{id}?language=en", "enabled": true},
+ {"type": "personio", "company": "Woodmark Group GmbH", "board": "woodmark-consulting-ag", "apply_url_template": "https://woodmark-consulting-ag.jobs.personio.de/job/{id}?language=en", "enabled": true},
+ {"type": "personio", "company": "Bookboost", "board": "bookboost", "apply_url_template": "https://bookboost.jobs.personio.de/job/{id}?language=en", "enabled": true},
+ {"type": "personio", "company": "Climate Analytics", "board": "climate", "apply_url_template": "https://climate.jobs.personio.de/job/{id}?language=en", "enabled": true},
+ {"type": "workday", "company": "Springer Nature", "career_url": "https://springernature.wd3.myworkdayjobs.com/en-US/SpringerNatureCareers", "enabled": false},
+ {"type": "successfactors", "company": "REQUIRES_EMPLOYER_FEED", "feed_url": "https://REPLACE_WITH_APPROVED_PUBLIC_FEED", "enabled": false}
+ ]
+}

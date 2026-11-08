@@ -1,0 +1,16 @@
+{
+ "target_roles": ["Data Engineer", "Analytics Engineer", "Big Data Developer", "ETL Engineer", "Data Platform Engineer", "PySpark Engineer", "Cloud Data Engineer", "SAP Data Integration"],
+ "location": {"country": "Germany", "include_remote": true, "scope": "NATIONWIDE"},
+ "required_tech_stack": ["Python", "SQL", "PySpark", "Databricks", "Apache Spark", "Hadoop"],
+ "filters": {
+ "exclude_keywords": ["PhD Candidate", "Postdoctoral", "Lead Architect", "Principal", "Staff Engineer", "Director"],
+ "english_friendly_only": true,
+ "min_resume_match_score": 0.70,
+ "min_distinct_tech_tags": 3,
+ "target_levels": ["Working Student", "Internship", "Junior", "Mid"],
+ "exclude_senior": true,
+ "allow_unknown_language": false
+ },
+ "sources": ["Official_Company_Portals", "Workday_ATS", "Greenhouse_Lever", "SAP_SuccessFactors", "LinkedIn", "StepStone"],
+ "sort_by": "newest_first"
+}

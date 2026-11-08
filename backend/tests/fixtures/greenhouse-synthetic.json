@@ -1,0 +1,26 @@
+{
+ "jobs": [
+ {
+ "id": 999100001,
+ "title": "Junior Data Engineer (m/f/d)",
+ "location": {"name": "Berlin, Germany"},
+ "absolute_url": "https://job-boards.greenhouse.io/superchat/jobs/999100001",
+ "first_published": "2026-11-07T09:00:00Z",
+ "content": "<p>SYNTHETIC TEST RECORD ONLY. English required. Build Data Engineering pipelines using Python, SQL, PySpark, Databricks and Delta Lake on Azure.</p>"
+ },
+ {
+ "id": 999100002,
+ "title": "Director of Data Platform",
+ "location": {"name": "Berlin, Germany"},
+ "absolute_url": "https://job-boards.greenhouse.io/superchat/jobs/999100002",
+ "content": "<p>English; Python SQL Databricks.</p>"
+ },
+ {
+ "id": 999100003,
+ "title": "Data Entry Assistant",
+ "location": {"name": "Berlin, Germany"},
+ "absolute_url": "https://job-boards.greenhouse.io/superchat/jobs/999100003",
+ "content": "<p>English; SQL Excel.</p>"
+ }
+ ]
+}
