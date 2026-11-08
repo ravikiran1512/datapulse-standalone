@@ -68,6 +68,7 @@ def to_payload(raw:RawJob)->dict[str,Any]:
      'remote_eligible_germany':raw.remote_eligible_germany,
      'remote_eligible_india':raw.remote_eligible_india,
      'work_model':raw.work_model,'job_level':raw.job_level,
+     'structured_experience_years':raw.structured_experience_years,
      'employment_type':raw.employment_type}
 
 
