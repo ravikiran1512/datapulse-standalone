@@ -146,6 +146,26 @@ def ats_links(html: str, base: str) -> list[dict]:
                 rows.append({"url": url, "type": "unsupported_or_unverified"})
         if len(rows) >= 12:
             break
+    # Fallback discovery only: an employer-linked RSS/JSON/XML document is
+    # NOT a proven vacancy schema. Keep it unverified until inspected.
+    employer_host = urlsplit(base).hostname or ""
+    for element in soup.select("link[href], a[href]")[:350]:
+        href = element.get("href") or ""
+        url = urljoin(base, href)
+        if not safe_https(url):
+            continue
+        p = urlsplit(url)
+        host = p.hostname or ""
+        if host != employer_host and not host.endswith(ATS_HOSTS):
+            continue
+        mime = (element.get("type") or "").lower()
+        path = p.path.lower()
+        structured = (any(x in mime for x in ("rss+xml", "atom+xml", "application/json"))
+                      or (path.endswith((".rss", ".atom", ".json", ".xml"))
+                          and any(x in path for x in ("job", "career", "position", "posting"))))
+        if structured and url not in seen and len(rows) < 12:
+            seen.add(url)
+            rows.append({"url": url, "type": "structured_feed_unverified"})
     return rows
 
 
