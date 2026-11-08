@@ -16,8 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict, Field
 
 from datapulse_ingestion.models import RawJob
-from datapulse_ingestion.policy import normalize_job
-from datapulse_ingestion.ingestion import validate_for_write
+from datapulse_ingestion.profiles import normalize_for_profiles, PERSONA_IDS, SAP_EXPERIENCED, SAP_STUDENT, DE_JUNIOR
 from .db import upsert_job, source_type_for
 from .search import boolean_condition, SearchSyntaxError
 
@@ -52,6 +51,12 @@ class JobResponse(BaseModel):
     company_name:str
     location:str
     region:str|None
+    country_code:str|None=None
+    country:str|None=None
+    min_experience_years:int|None=None
+    max_experience_years:int|None=None
+    experience_evidence:str|None=None
+    persona_tags:list[str]=Field(default_factory=list)
     work_mode:str
     employment_type:str
     level:str
@@ -92,10 +97,12 @@ async def health(request:Request):
 async def jobs(
     request:Request,
     query:str|None=None,
+    persona:list[Literal['sap_basis_experienced','sap_basis_student','data_engineering_junior']]=Query(default=[DE_JUNIOR]),
+    country:Literal['DE','IN']|None=None,
     region:str|None=None,
     work_mode:Literal['Remote','Hybrid','On-site']|None=None,
     level:Literal['Working Student','Internship','Junior','Mid']|None=None,
-    role_type:Literal['Data Engineering','AI Engineering','MLOps']|None=None,
+    role_type:Literal['SAP Basis','Data Engineering','AI Engineering','MLOps']|None=None,
     skills:list[str]=Query(default=[]),
     english_only:bool=True,
     min_match_score:float=Query(default=0.70,ge=0,le=1),
@@ -106,6 +113,25 @@ async def jobs(
     pool=db(request)
     params=[]
     conditions=['is_active=TRUE','needs_review=FALSE']
+    # Combined personas use OR: each preset retains its own country + experience
+    # constraints. Never treat a NULL experience as 0 years.
+    selections=persona or list(PERSONA_IDS)
+    params.append(selections)
+    profiles=f'''(
+      ('sap_basis_experienced'=ANY($1::text[]) AND 'sap_basis_experienced'=ANY(persona_tags)
+        AND country_code IN ('DE','IN') AND min_experience_years BETWEEN 3 AND 6
+        AND (max_experience_years IS NULL OR max_experience_years <= 8))
+      OR ('sap_basis_student'=ANY($1::text[]) AND 'sap_basis_student'=ANY(persona_tags)
+        AND country_code='DE' AND level IN ('Working Student','Internship','Junior'))
+      OR ('data_engineering_junior'=ANY($1::text[]) AND 'data_engineering_junior'=ANY(persona_tags)
+        AND country_code='DE' AND level IN ('Working Student','Internship','Junior')
+        AND (min_experience_years IS NULL OR min_experience_years<=2))
+    )'''
+    conditions.append(profiles)
+    if country:
+        params.append(country)
+        conditions.append(f'country_code=${len(params)}')
+
     try:conditions.append(boolean_condition(query,params))
     except SearchSyntaxError as exc:raise HTTPException(422,str(exc)) from exc
     if region and region.lower() not in ('all','germany','nationwide'):
@@ -128,7 +154,8 @@ async def jobs(
     params.extend([limit,(page-1)*limit])
     sql=f'''SELECT id::text,job_title,company_name,location,region,work_mode::text,employment_type,
       level::text,domain_category,language_required,is_english_friendly,description,tech_stack,
-      match_score,official_apply_url,source_name,source_type::text,date_posted,last_verified_at,created_at
+      match_score,official_apply_url,source_name,source_type::text,date_posted,last_verified_at,created_at,
+      country_code,country,min_experience_years,max_experience_years,experience_evidence,persona_tags
       FROM datapulse.jobs WHERE {where} ORDER BY {sorting}
       LIMIT ${len(params)-1} OFFSET ${len(params)}'''
     async with pool.acquire() as conn:
@@ -137,6 +164,18 @@ async def jobs(
         scanned=await conn.fetchval('SELECT max(completed_at) FROM datapulse.ingestion_runs')
     return SearchPage(items=[JobResponse.model_validate(dict(r)) for r in rows],total=total,
                       page=page,limit=limit,scanned_at=scanned)
+
+
+@app.get('/api/v1/profiles')
+async def available_profiles():
+    return {'profiles':[
+        {'id':SAP_EXPERIENCED,'label':'SAP Basis · Experienced','countries':['DE','IN'],
+         'experience':'3–6 years (around 5)','min_experience_years':3,'max_experience_years':6},
+        {'id':SAP_STUDENT,'label':'SAP Basis · Student / Entry','countries':['DE'],
+         'experience':'Not restricted','min_experience_years':None,'max_experience_years':None},
+        {'id':DE_JUNIOR,'label':'Data Engineering · Junior / Entry','countries':['DE'],
+         'experience':'Up to 2 years','min_experience_years':0,'max_experience_years':2},
+    ]}
 
 
 @app.get('/api/v1/sources')
@@ -162,6 +201,7 @@ class IngestCandidate(BaseModel):
     date_evidence:str|None=None
     country_code:str|None=None
     remote_eligible_germany:bool=False
+    remote_eligible_india:bool=False
     work_model:str|None=None
     job_level:str|None=None
     employment_type:str|None=None
@@ -195,14 +235,12 @@ async def ingest(batch:IngestBatch,request:Request):
                    location=item.location,job_url=item.job_url,description=item.description,
                    date_posted=item.date_posted,date_evidence=item.date_evidence,
                    country_code=item.country_code,remote_eligible_germany=item.remote_eligible_germany,
+                   remote_eligible_india=item.remote_eligible_india,
                    work_model=item.work_model,job_level=item.job_level,
                    employment_type=item.employment_type,tech_stack=item.tech_stack)
-        normalized,why=normalize_job(raw,DEFAULT_CRITERIA)
+        normalized,why=normalize_for_profiles(raw)
         if normalized is None:
             result['rejected'].append({'source_id':item.source_id,'reason':why});continue
-        check=validate_for_write(normalized)
-        if not check.ok:
-            result['rejected'].append({'source_id':item.source_id,'reason':check.reason});continue
         try:
             status,_=await upsert_job(pool,normalized,item.description)
             result[status]+=1
@@ -257,6 +295,6 @@ async def remove_bookmark(job_id:UUID,request:Request,user_id:UUID=Depends(verif
     await pool.execute('DELETE FROM datapulse.user_saved_jobs WHERE user_id=$1 AND job_id=$2',user_id,job_id)
     return {'saved':False}
 
-# Read-only authenticated ATS scan endpoint.
+# A restricted read-only ATS scan endpoint. This does not enable job ingestion.
 from .scheduled_scan import router as scan_router
 app.include_router(scan_router)
