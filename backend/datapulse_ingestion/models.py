@@ -19,6 +19,7 @@ class RawJob:
     job_level: str | None = None
     country_code: str | None = None
     remote_eligible_germany: bool = False
+    remote_eligible_india: bool = False
     tech_stack: list[str] = field(default_factory=list)
 
     @property
@@ -44,6 +45,13 @@ class Job:
     datapulse_fit_score: str
     source_key: str
     date_evidence: str | None = None
+    country_code: str | None = None
+    min_experience_years: int | None = None
+    max_experience_years: int | None = None
+    experience_evidence: str | None = None
+    persona_tags: list[str] = field(default_factory=list)
+    technical_match_score: float | None = None
+    is_english_friendly: bool | None = None
 
     def payload(self) -> dict[str, Any]:
         data = asdict(self)
