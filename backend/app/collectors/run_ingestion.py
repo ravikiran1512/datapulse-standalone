@@ -17,9 +17,8 @@ from typing import Any
 
 import httpx
 from datapulse_ingestion.connectors import CONNECTORS, Fetcher
-from datapulse_ingestion.ingestion import validate_for_write
 from datapulse_ingestion.models import RawJob
-from datapulse_ingestion.policy import normalize_job
+from datapulse_ingestion.profiles import normalize_for_profiles
 
 ROOT=Path(__file__).resolve().parents[3]
 CRITERIA={"filters":{"min_distinct_tech_tags":3,"english_friendly_only":True,
@@ -42,6 +41,7 @@ def to_payload(raw:RawJob)->dict[str,Any]:
      'tech_stack':raw.tech_stack,'date_posted':raw.date_posted,
      'date_evidence':raw.date_evidence,'country_code':raw.country_code,
      'remote_eligible_germany':raw.remote_eligible_germany,
+     'remote_eligible_india':raw.remote_eligible_india,
      'work_model':raw.work_model,'job_level':raw.job_level,
      'employment_type':raw.employment_type}
 
@@ -87,18 +87,14 @@ async def collect(source_file:Path,*,source:str|None=None,board_filter:str|None=
             summary['boards_succeeded']+=1
             summary['jobs_seen']+=len(fetched)
             for raw in fetched:
-                job,reason=normalize_job(raw,CRITERIA)
+                job,reason=normalize_for_profiles(raw)
                 if job is None:
                     summary['rejected'][reason]=summary['rejected'].get(reason,0)+1
-                    continue
-                validation=validate_for_write(job)
-                if not validation.ok:
-                    summary['rejected'][validation.reason]=summary['rejected'].get(validation.reason,0)+1
                     continue
                 accepted.append(to_payload(raw))
                 if len(summary['sample_jobs'])<6:
                     summary['sample_jobs'].append({'title':job.job_title,'company':job.company_name,
-                                                   'source':job.source_platform,'match':round(validation.match_score,3)})
+                                                   'source':job.source_platform,'match':round(job.technical_match_score or 0,3),'personas':job.persona_tags})
         except Exception as exc:
             summary['errors'][label]=f'{type(exc).__name__}: {str(exc)[:160]}'
     summary['accepted']=len(accepted)
