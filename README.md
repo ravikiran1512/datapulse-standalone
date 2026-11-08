@@ -151,3 +151,5 @@ for source status, local checks, and limitations.
 ### November 2026 candidate feature upgrade
 
 The default frontend preset selection is empty ("Show All"). Candidates can now save application statuses locally, export saved jobs as escaped CSV, inspect a profile-based skill-gap drawer, and see evidence-backed language/visa/salary indicators. The API provides corresponding metadata, authenticated bookmark-status updates and bounded daily ATS stale-link checks. The partner directory resolver is in `backend/app/collectors/discover_partners.py` and intentionally reports unverified feed leads rather than auto-ingesting them. Details: `docs/CANDIDATE_FEATURES_AND_PARTNER_DISCOVERY.md`. Apply `sql/migrations/20261108_candidate_features.sql` before deployment.
+
+STATWORX Personio XML was verified (HTTP 200, 23 live positions); the registry now has 20 enabled ATS sources, with 11 checked per daily read-only scan on a rotating basis. Partner directory discovery also runs weekly, logging candidates without writing jobs.
