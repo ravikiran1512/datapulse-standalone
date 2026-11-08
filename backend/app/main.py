@@ -18,6 +18,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from datapulse_ingestion.models import RawJob
 from datapulse_ingestion.profiles import normalize_for_profiles, PERSONA_IDS, SAP_EXPERIENCED, SAP_STUDENT, DE_JUNIOR
 from .db import upsert_job, source_type_for
+from datapulse_ingestion.metadata import match_breakdown
 from .search import boolean_condition, SearchSyntaxError
 
 
@@ -36,7 +37,7 @@ async def lifespan(app: FastAPI):
 app=FastAPI(title='DataPulse Germany Jobs API',version='2.0.0',lifespan=lifespan)
 origins=[x.strip() for x in os.getenv('FRONTEND_ORIGINS','http://localhost:3000').split(',') if x.strip()]
 app.add_middleware(CORSMiddleware,allow_origins=origins,allow_credentials=False,
-                   allow_methods=['GET','POST','DELETE'],allow_headers=['Authorization','Content-Type'])
+                   allow_methods=['GET','POST','DELETE','PATCH'],allow_headers=['Authorization','Content-Type'])
 
 
 def db(request:Request):
@@ -57,6 +58,13 @@ class JobResponse(BaseModel):
     max_experience_years:int|None=None
     experience_evidence:str|None=None
     persona_tags:list[str]=Field(default_factory=list)
+    visa_supported:bool=False
+    relocation_assistance:bool=False
+    salary_range:str|None=None
+    salary_currency:str|None=None
+    link_status:str='unchecked'
+    last_link_checked_at:datetime|None=None
+    fit_breakdown:dict=Field(default_factory=dict)
     work_mode:str
     employment_type:str
     level:str
@@ -97,7 +105,7 @@ async def health(request:Request):
 async def jobs(
     request:Request,
     query:str|None=None,
-    persona:list[Literal['sap_basis_experienced','sap_basis_student','data_engineering_junior']]=Query(default=[DE_JUNIOR]),
+    persona:list[Literal['sap_basis_experienced','sap_basis_student','data_engineering_junior']]=Query(default=[]),
     country:Literal['DE','IN']|None=None,
     region:str|None=None,
     work_mode:Literal['Remote','Hybrid','On-site']|None=None,
@@ -120,12 +128,13 @@ async def jobs(
     profiles=f'''(
       ('sap_basis_experienced'=ANY($1::text[]) AND 'sap_basis_experienced'=ANY(persona_tags)
         AND country_code IN ('DE','IN') AND min_experience_years BETWEEN 3 AND 6
-        AND (max_experience_years IS NULL OR max_experience_years <= 8))
+        AND (max_experience_years IS NULL OR max_experience_years <= 6))
       OR ('sap_basis_student'=ANY($1::text[]) AND 'sap_basis_student'=ANY(persona_tags)
         AND country_code='DE' AND level IN ('Working Student','Internship','Junior'))
       OR ('data_engineering_junior'=ANY($1::text[]) AND 'data_engineering_junior'=ANY(persona_tags)
         AND country_code='DE' AND level IN ('Working Student','Internship','Junior')
-        AND (min_experience_years IS NULL OR min_experience_years<=2))
+        AND (min_experience_years IS NULL OR min_experience_years<=2)
+        AND (max_experience_years IS NULL OR max_experience_years<=2))
     )'''
     conditions.append(profiles)
     if country:
@@ -155,14 +164,21 @@ async def jobs(
     sql=f'''SELECT id::text,job_title,company_name,location,region,work_mode::text,employment_type,
       level::text,domain_category,language_required,is_english_friendly,description,tech_stack,
       match_score,official_apply_url,source_name,source_type::text,date_posted,last_verified_at,created_at,
-      country_code,country,min_experience_years,max_experience_years,experience_evidence,persona_tags
+      country_code,country,min_experience_years,max_experience_years,experience_evidence,persona_tags,
+      visa_supported,relocation_assistance,salary_range,salary_currency,link_status,last_link_checked_at
       FROM datapulse.jobs WHERE {where} ORDER BY {sorting}
       LIMIT ${len(params)-1} OFFSET ${len(params)}'''
     async with pool.acquire() as conn:
         total=await conn.fetchval(total_sql,*params[:-2])
         rows=await conn.fetch(sql,*params)
         scanned=await conn.fetchval('SELECT max(completed_at) FROM datapulse.ingestion_runs')
-    return SearchPage(items=[JobResponse.model_validate(dict(r)) for r in rows],total=total,
+    items=[]
+    for r in rows:
+        data=dict(r)
+        data['fit_breakdown']=match_breakdown(data['domain_category'],data['tech_stack'],
+            data['persona_tags'],data['min_experience_years'],data['max_experience_years'])
+        items.append(JobResponse.model_validate(data))
+    return SearchPage(items=items,total=total,
                       page=page,limit=limit,scanned_at=scanned)
 
 
@@ -277,7 +293,7 @@ async def verified_user(authorization:Annotated[str|None,Header()]=None)->UUID:
 async def bookmarks(request:Request,user_id:UUID=Depends(verified_user)):
     pool=db(request)
     rows=await pool.fetch('''SELECT j.id::text,j.job_title,j.company_name,j.location,
-      j.official_apply_url,j.source_name,j.source_type::text,j.match_score,s.saved_at
+      j.official_apply_url,j.source_name,j.source_type::text,j.match_score,s.saved_at,s.application_status,s.status_updated_at
       FROM datapulse.user_saved_jobs s JOIN datapulse.jobs j ON j.id=s.job_id
       WHERE s.user_id=$1 ORDER BY s.saved_at DESC''',user_id)
     return {'items':[dict(r) for r in rows]}
@@ -289,6 +305,20 @@ async def save_bookmark(job_id:UUID,request:Request,user_id:UUID=Depends(verifie
     await pool.execute('''INSERT INTO datapulse.user_saved_jobs(user_id,job_id)
        VALUES($1,$2) ON CONFLICT (user_id,job_id) DO NOTHING''',user_id,job_id)
     return {'saved':True}
+
+
+class ApplicationStatusUpdate(BaseModel):
+    status:Literal['Saved','Applied','Interviewing','Archived']
+
+
+@app.patch('/api/v1/bookmarks/{job_id}/status')
+async def set_application_status(job_id:UUID, payload:ApplicationStatusUpdate,
+                                 request:Request,user_id:UUID=Depends(verified_user)):
+    pool=db(request)
+    changed=await pool.fetchval('UPDATE datapulse.user_saved_jobs SET application_status=$3,status_updated_at=now() WHERE user_id=$1 AND job_id=$2 RETURNING application_status',
+      user_id,job_id,payload.status)
+    if changed is None:raise HTTPException(404,'Saved job not found')
+    return {'job_id':str(job_id),'status':changed}
 
 
 @app.delete('/api/v1/bookmarks/{job_id}')
