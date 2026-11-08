@@ -228,6 +228,17 @@
         "IN",
         "DE"
       ]
+    },
+    {
+      "type": "personio",
+      "company": "STATWORX",
+      "board": "statworx",
+      "enabled": true,
+      "countries": [
+        "DE"
+      ],
+      "apply_url_template": "https://statworx.jobs.personio.de/job/{id}?language=en",
+      "verification": "Public Personio XML returned 200 with 23 positions on 2026-11-08; direct source check"
     }
   ],
   "discovery_targets": [
