@@ -130,3 +130,12 @@ async def test_dryrun_fetches_partner_careers_and_never_persists(monkeypatch):
     assert result["per_profile"][SAP_STUDENT] == 1
     assert result["feeds_validated"] == 1
     assert result["companies"][0]["directory_status"] == "name_visible_on_public_page"
+
+
+def test_structured_feed_discovery_is_only_an_unverified_candidate():
+    html = '<link rel="alternate" type="application/rss+xml" href="/careers/jobs.rss">'
+    rows = d.ats_links(html, "https://careers.example.org/")
+    assert len(rows) == 1
+    assert rows[0]["type"] == "structured_feed_unverified"
+    # Never guess this is a SuccessFactors or Softgarden job feed.
+    assert d.ats_board_from_link(rows[0]["url"], "Example") is None
