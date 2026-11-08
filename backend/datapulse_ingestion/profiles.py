@@ -25,9 +25,12 @@ PERSONA_IDS = (SAP_EXPERIENCED, SAP_STUDENT, DE_JUNIOR)
 # Deliberately match BASIS administration in the title. Generic SAP ABAP,
 # SAP functional consultants and SAP reporting jobs are not BASIS positions.
 SAP_BASIS_ROLE = re.compile(
-    r'\b(?:sap\s+(?:basis|netweaver|hana\s+admin(?:istration|istrator)?)|'
+    r'\b(?:sap\s+(?:basis|netweaver|hana\s+(?:admin(?:istration|istrator)?|dba)|'
+    r'btp\s+(?:admin(?:istration|istrator)?|platform\s+admin)|'
+    r'system\s+admin(?:istration|istrator)?|s\s*/\s*4\s*hana\s+basis)|'
     r'(?:sap\s+)?basis\s+(?:consultant|administrator|admin|engineer)|'
     r'netweaver\s+(?:administrator|consultant|engineer)|'
+    r's\s*/\s*4\s*hana\s+basis|'
     r'sap\s+system\s+administrator)\b', re.I,
 )
 SAP_SKILLS = {
@@ -55,13 +58,14 @@ CANNOT_HIRE = re.compile(r'\b(?:usa|united\s+states|canada|australia|uk|united\s
 
 # Look only for *requirements*, not tenure of an employer or perks. '3-5 years',
 # 'at least 5 years', '5+ years of experience', 'experience: 5 years', etc.
-EXPERIENCE_RANGE = re.compile(r'\b(\d{1,2})\s*(?:-|–|—|to)\s*(\d{1,2})\s*(?:years?|yrs?)\b',re.I)
-EXPERIENCE_PLUS = re.compile(r'\b(\d{1,2})\s*\+\s*(?:years?|yrs?)\b',re.I)
-EXPERIENCE_MIN = re.compile(r'\b(?:at\s+least|minimum\s+(?:of\s+)?|min\.?\s*|over\s+|more\s+than\s+)(\d{1,2})\s*(?:years?|yrs?)\b',re.I)
-EXPERIENCE_SINGLE = re.compile(r'\b(\d{1,2})\s*(?:years?|yrs?)\s+(?:of\s+)?(?:relevant\s+|professional\s+|hands[-\s]?on\s+)?(?:experience|in\s+data\s+engineering|in\s+sap\s+basis)\b',re.I)
+EXPERIENCE_RANGE = re.compile(r'\b(\d{1,2})\s*(?:-|–|—|to|bis)\s*(\d{1,2})\s*(?:years?|yrs?|jahre[n]?)\b',re.I)
+EXPERIENCE_PLUS = re.compile(r'\b(\d{1,2})\s*\+\s*(?:years?|yrs?|jahre[n]?)\b',re.I)
+EXPERIENCE_MIN = re.compile(r'\b(?:at\s+least\s+|minimum\s+(?:of\s+)?|min\.?\s*|over\s+|more\s+than\s+|mindestens\s+)(\d{1,2})\s*(?:years?|yrs?|jahre[n]?)\b',re.I)
+EXPERIENCE_SINGLE = re.compile(r'\b(\d{1,2})\s*(?:years?|yrs?|jahre[n]?)\s+(?:of\s+)?(?:relevant\s+|professional\s+|hands[-\s]?on\s+)?(?:experience|erfahrung|berufserfahrung|in\s+data\s+engineering|in\s+sap\s+basis)\b',re.I)
 EXPERIENCE_PREFIX = re.compile(r'\b(?:experience|erfahrung|berufserfahrung)\s*[:\-]?\s*(\d{1,2})\s*(?:years?|yrs?|jahre[n]?)\b',re.I)
 EXPERIENCE_REQUIREMENT = re.compile(r'\b(?:require(?:d|ments?)?|must\s+have|looking\s+for|you\s+have|bring|possess|need|minimum|mindestens|at\s+least)\b',re.I)
-EXPERIENCE_CONTEXT = re.compile(r'\b(?:experience|erfahrung|berufserfahrung|professional|engineering|basis|years?\s+in\s+the\s+(?:role|field))\b',re.I)
+EXPERIENCE_CONTEXT = re.compile(r'\b(?:experience|erfahrung|berufserfahrung|professional|engineering|basis|requirements?|qualifications?|must\s+have|years?\s+in\s+the\s+(?:role|field))\b',re.I)
+EXPERIENCE_BARE = re.compile(r'\b(\d{1,2})\s*(?:years?|yrs?|jahre[n]?)\b',re.I)
 
 @dataclass(frozen=True)
 class Experience:
@@ -81,19 +85,21 @@ def parse_experience(description: str) -> Experience:
     spans: list[tuple[int,int]] = []
     for pattern,kind in ((EXPERIENCE_RANGE,'range'),(EXPERIENCE_PLUS,'plus'),
                          (EXPERIENCE_MIN,'min'),(EXPERIENCE_SINGLE,'single'),
-                         (EXPERIENCE_PREFIX,'single')):
+                         (EXPERIENCE_PREFIX,'single'),(EXPERIENCE_BARE,'bare')):
         for m in pattern.finditer(text):
             # Do not count '6 years of experience' again inside '3–6 years'.
             if any(m.start()<end and m.end()>start for start,end in spans):
                 continue
             excerpt=text[max(0,m.start()-85):min(len(text),m.end()+75)]
             # Avoid employer history e.g. 'Company founded 10 years ago'.
-            if kind not in ('single',) and not EXPERIENCE_CONTEXT.search(excerpt):
+            if kind in ('bare',) and not EXPERIENCE_CONTEXT.search(excerpt):
+                continue
+            if kind not in ('single','bare') and not EXPERIENCE_CONTEXT.search(excerpt):
                 continue
             if re.search(r'\b(?:benefits|history|founded|since|established|we\s+have\s+been|company\s+has)\b', excerpt, re.I) and not EXPERIENCE_REQUIREMENT.search(excerpt):
                 continue
             lo=int(m.group(1))
-            hi=int(m.group(2)) if kind=='range' else (lo if kind=='single' else None)
+            hi=int(m.group(2)) if kind=='range' else None
             if lo>40 or (hi is not None and (hi<lo or hi>40)):
                 continue
             matches.append((lo,hi,m.group(0)))
@@ -156,7 +162,8 @@ def persona_matches(raw:RawJob, country:str, exp:Experience) -> tuple[str,...]:
         student=bool(STUDENT.search(combined) or INTERN.search(combined) or JUNIOR.search(combined))
         if student:
             return (SAP_STUDENT,) if country=='DE' and not SENIOR.search(title) else ()
-        if SENIOR.search(title):return ()
+        # A title may say Senior despite an explicit five-year requirement.
+        # Do not confuse the title with the numeric experience constraint.
         # Experienced only with explicit, credible evidence of ~5 years.
         if exp.minimum is not None and 3<=exp.minimum<=6 and (exp.maximum is None or (3<=exp.maximum<=8)):
             return (SAP_EXPERIENCED,) if country in ('DE','IN') else ()
@@ -202,6 +209,8 @@ def normalize_for_profiles(raw:RawJob)->tuple[Job|None,str]:
     job_level='Working Student' if STUDENT.search(raw.job_title) else (
         'Internship' if INTERN.search(raw.job_title) else (
         'Junior' if JUNIOR.search(raw.job_title) or DE_JUNIOR in personas else 'Mid'))
+    # Student / intern status is an explicit entry route, not years of experience.
+    effective_exp=Experience(0,None,'Student/entry role: experience requirement not enforced') if SAP_STUDENT in personas else exp
     item=Job(job_title=clean(raw.job_title),company_name=clean(raw.company_name),
         location=loc,city=city,work_model=work_model(raw.location,raw.description,raw.work_model),
         employment_type=employment(raw.job_title,raw.description,raw.employment_type),
@@ -210,7 +219,7 @@ def normalize_for_profiles(raw:RawJob)->tuple[Job|None,str]:
         source_platform=raw.source_platform,date_posted=valid_date(raw.date_posted),
         datapulse_fit_score=f'{round(score*100)}%',source_key=raw.source_key,
         date_evidence=raw.date_evidence,
-        country_code=location_country,min_experience_years=exp.minimum,
-        max_experience_years=exp.maximum,experience_evidence=exp.evidence,
+        country_code=location_country,min_experience_years=effective_exp.minimum,
+        max_experience_years=effective_exp.maximum,experience_evidence=effective_exp.evidence,
         persona_tags=list(personas),technical_match_score=score,is_english_friendly=is_english)
     return item,'accepted'
