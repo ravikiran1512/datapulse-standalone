@@ -35,6 +35,16 @@ CREATE TABLE IF NOT EXISTS datapulse.jobs (
   domain_category text NOT NULL DEFAULT 'Data Engineering',
   language_required text NOT NULL DEFAULT 'Unknown',
   is_english_friendly boolean NOT NULL DEFAULT false,
+  visa_supported boolean NOT NULL DEFAULT false,
+  relocation_assistance boolean NOT NULL DEFAULT false,
+  salary_range varchar(100),
+  salary_currency varchar(3),
+  salary_evidence text,
+  last_link_checked_at timestamptz,
+  link_status varchar(24) NOT NULL DEFAULT 'unchecked',
+  link_failures integer NOT NULL DEFAULT 0,
+  link_detail varchar(160),
+  link_last_confirmed_at timestamptz,
   description text,
   tech_stack text[] NOT NULL DEFAULT '{}'::text[],
   match_score double precision NOT NULL DEFAULT 0 CHECK (match_score BETWEEN 0 AND 1),
@@ -83,6 +93,8 @@ CREATE TABLE IF NOT EXISTS datapulse.user_saved_jobs (
   user_id uuid NOT NULL,
   job_id uuid NOT NULL REFERENCES datapulse.jobs(id) ON DELETE RESTRICT,
   saved_at timestamptz NOT NULL DEFAULT now(),
+  application_status varchar(32) NOT NULL DEFAULT 'Saved',
+  status_updated_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE (user_id,job_id)
 );
 CREATE TABLE IF NOT EXISTS datapulse.ingestion_runs (
