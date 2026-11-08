@@ -97,3 +97,22 @@ PYTHONPATH=. pytest -q tests
 Read **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)** before deploying. The source ZIP is an installable starting point, not a live replacement site. A complete cutover requires a real export of the ChatGPT Site jobs and saved favorites; the previous Site is managed in a different hosting environment.
 
 **Security:** keep secret credentials out of Git and `NEXT_PUBLIC_` variables. Restrict CORS to the actual Vercel origin. If using Supabase Auth, enable and configure your users in Supabase; the backend confirms bearer identity with Supabase Auth instead of trusting a supplied `user_id`.
+
+
+## Multi-profile search (2026-11-08)
+
+DataPulse now supports multiple simultaneous job profiles via repeated query parameters:
+
+```text
+GET /api/v1/jobs?persona=sap_basis_experienced&persona=sap_basis_student&country=DE
+GET /api/v1/jobs?persona=data_engineering_junior&country=DE
+GET /api/v1/profiles
+```
+
+Presets: **SAP Basis Experienced** (Germany/India, published minimum experience 3–6 years, exclude >8 upper limits), **SAP Basis Student / Entry** (Germany, internship/working student/junior, no experience restriction), and **Data Engineering Junior / Entry** (Germany, advertised experience requirement <= 2 years, excluding generic roles with no experience evidence). Presets are combined using **OR** and each preset retains its own country/experience requirements; any optional country/region/work-mode/skill filter narrows the results.
+
+Ingested job records include `country_code` (`DE` / `IN`), nullable `min_experience_years` and `max_experience_years` (unknown is **not zero**), `experience_evidence`, and `persona_tags`. Do not treat `SAP Basis` relevance scores as resume cosine scores: SAP uses a role-based relevance heuristic while Data Engineering uses the existing technical skill cosine score. Browser bookmarks remain intact. The scan endpoint remains strictly read-only; production writes require separate authenticated ingestion.
+
+**Existing database upgrade:** Apply `sql/migrations/20261108_add_job_personas.sql` to the dedicated DataPulse Supabase database. It is idempotent and does not delete data or bookmarks. The full `sql/schema.sql` includes the same columns for brand-new installations.
+
+**Coverage:** The current configured employer feeds are not a guarantee of nationwide India SAP Basis coverage. Add verified employer board identifiers (especially Indian employers) separately; no candidate is displayed as real without a legitimate ATS posting. Experience parsing is conservative and may require manual review when language varies.
