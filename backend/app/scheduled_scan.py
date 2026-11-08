@@ -18,6 +18,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 
 from .collectors.run_ingestion import ROOT, collect, eligible_boards
 from .link_checker import check_stale_jobs
+from .verified_auto_import import import_approved_jobs
 from .collectors.discover_partners import discover
 
 router = APIRouter(prefix="/api/v1/internal", tags=["internal"])
@@ -34,6 +35,23 @@ def require_scan_token(authorization: Annotated[str | None, Header()] = None) ->
 
 async def _execute_scan(pool, run_id) -> None:
     try:
+        pilot_error=None
+        if os.getenv('ENABLE_VERIFIED_AUTO_IMPORT','false').lower()=='true':
+            # Pilot is explicitly opt-in; mark run as not dry-run even if
+            # no eligible vacancy is found or the pilot later fails.
+            await pool.execute(
+                'UPDATE datapulse.ingestion_runs SET dry_run=FALSE WHERE id=$1',run_id)
+            try:
+                imported=await import_approved_jobs(pool)
+                await pool.execute(
+                    '''UPDATE datapulse.ingestion_runs
+                       SET inserted=$2, updated=$3, accepted=GREATEST(accepted,$4)
+                       WHERE id=$1''',
+                    run_id,imported['inserted'],imported['updated'],imported['eligible'])
+                log.info('Verified Dow pilot imported: %s',imported)
+            except Exception as exc:
+                pilot_error=type(exc).__name__
+                log.exception('Verified pilot failed; other sources remain read-only')
         registry=ROOT / "config" / "verified-boards.json"
         board_count=len(eligible_boards(registry))
         board_offset=(date.today().toordinal()*11)%board_count if board_count else 0
@@ -44,7 +62,10 @@ async def _execute_scan(pool, run_id) -> None:
             board_offset=board_offset,
             expand_registry=True,
         )
-        # This is a read-only ATS scan: jobs table and bookmark table are untouched.
+        # The broad registry scan remains read-only. If pilot ingestion was
+        # enabled, only the separately approved employer has a write path.
+        if pilot_error:
+            result['errors']['approved_import']=pilot_error
         await pool.execute(
             """UPDATE datapulse.ingestion_runs
                 SET completed_at=now(), sources_attempted=$2, sources_succeeded=$3,
