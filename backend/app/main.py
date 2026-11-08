@@ -194,7 +194,7 @@ class IngestCandidate(BaseModel):
     location:str=Field(min_length=2,max_length=260)
     description:str=Field(default='',max_length=20000)
     job_url:str
-    source_platform:Literal['Greenhouse','Lever','Ashby','Personio','Workday','SuccessFactors','Company_Portal']
+    source_platform:Literal['Greenhouse','Lever','Ashby','Personio','Workday','SuccessFactors','SmartRecruiters','Company_Portal']
     source_id:str=Field(min_length=2,max_length=300)
     tech_stack:list[str]=Field(default_factory=list,max_length=40)
     date_posted:str|None=None
