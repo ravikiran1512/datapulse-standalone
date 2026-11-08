@@ -10,6 +10,18 @@ export interface Job {
   max_experience_years:number|null;
   experience_evidence:string|null;
   persona_tags:string[];
+  visa_supported:boolean;
+  relocation_assistance:boolean;
+  salary_range:string|null;
+  salary_currency:string|null;
+  link_status:string;
+  last_link_checked_at:string|null;
+  fit_breakdown?:{
+    matched_skills:string[];
+    missing_or_recommended_skills:string[];
+    experience_fit:string;
+    method:string;
+  };
   work_mode:string;
   employment_type:string;
   level:string;
