@@ -159,7 +159,14 @@ def persona_matches(raw:RawJob, country:str, exp:Experience) -> tuple[str,...]:
     if EXCLUDE_ROLE.search(title) or re.search(r'\b(?:director|head\s+of|vice\s+president|vp|chief|principal|staff|architect)\b',title,re.I):
         return ()
     if SAP_BASIS_ROLE.search(title):
-        student=bool(STUDENT.search(combined) or INTERN.search(combined) or JUNIOR.search(combined))
+        # Personio may label a full-time SAP consultant "entry-level" even
+        # when the job description is absent. That alone is not enough to
+        # classify it as a student/intern vacancy.
+        contract=raw.employment_type or ''
+        explicit_title=bool(STUDENT.search(title) or INTERN.search(title) or JUNIOR.search(title))
+        student_contract=bool(re.search(r'\b(?:werkstudent(?:in)?|working\s+student|'
+                              r'intern(?:ship)?|praktik(?:um|ant|antin)|trainee)\b',contract,re.I))
+        student=explicit_title or student_contract
         if student:
             return (SAP_STUDENT,) if country=='DE' and not SENIOR.search(title) else ()
         # A title may say Senior despite an explicit five-year requirement.
