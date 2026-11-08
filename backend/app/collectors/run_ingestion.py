@@ -93,13 +93,16 @@ async def push_batches(records:list[dict],api_base_url:str,token:str)->dict:
 async def collect(source_file:Path,*,source:str|None=None,board_filter:str|None=None,
                   dry_run:bool=True,target:str='api',api_base_url:str|None=None,max_boards:int=60,
                   fixture_file:Path|None=None,expand_registry:bool=False,
-                  target_profiles:str|None=None)->dict:
+                  target_profiles:str|None=None,board_offset:int=0)->dict:
     selected=resolve_profiles(target_profiles)
     boards=eligible_boards(source_file,source,board_filter)
     # Legacy 11 sources remain the default for the scheduled scanner until
     # the expanded registry has been benchmarked and reviewed.
     if not expand_registry and not source and not board_filter:
         boards=boards[:11]
+    if boards and board_offset:
+        board_offset=board_offset%len(boards)
+        boards=boards[board_offset:]+boards[:board_offset]
     boards=boards[:max_boards]
     summary={'dry_run':dry_run,'expanded_registry':expand_registry,
              'target_profiles':list(selected),'per_profile':{p:{'accepted':0,'samples':[]} for p in selected},
