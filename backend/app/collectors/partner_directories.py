@@ -247,6 +247,7 @@ async def get_html(client: httpx.AsyncClient, url: str, cache: dict) -> tuple[st
 async def scan_partner_targets(
     targets: list[dict], verified_boards: list[dict], *, ecosystems: set[str],
     max_partners: int = 6, max_feeds: int = 3,
+    profiles: tuple[str, ...] | None = None,
     request_client: httpx.AsyncClient | None = None,
     connector_fetcher: Fetcher | None = None,
 ) -> dict:
@@ -258,11 +259,13 @@ async def scan_partner_targets(
     fetcher = connector_fetcher or Fetcher(timeout=12, delay_seconds=1.2)
     cache: dict = {}
     selected = select_targets(targets, ecosystems, max_partners)
+    profile_selection = profiles or (SAP_EXPERIENCED, SAP_STUDENT, DE_JUNIOR)
     summary = {"dry_run": True, "source": "partner_directories",
+               "target_profiles": list(profile_selection),
                "ecosystems": sorted(ecosystems), "targets_checked": len(selected),
                "directory_names_visible": 0, "feeds_validated": 0,
                "jobs_seen": 0, "accepted": 0, "per_profile": {p: 0 for p in
-                  (SAP_EXPERIENCED, SAP_STUDENT, DE_JUNIOR)},
+                  profile_selection},
                "rejected": {}, "companies": [], "samples": [],
                "inserted": 0, "updated": 0,
                "notes": "Public directory visibility does not establish current certification tier."}
@@ -322,18 +325,19 @@ async def scan_partner_targets(
                     summary["feeds_validated"] += 1
                     summary["jobs_seen"] += len(jobs)
                     for raw in jobs:
-                        profiles, why, exp = strict_partner_profiles(raw)
-                        if not profiles:
+                        matched, why, exp = strict_partner_profiles(raw)
+                        matched = tuple(p for p in matched if p in profile_selection)
+                        if not matched:
                             rejections[why] += 1
                             continue
                         info["accepted"] += 1
                         summary["accepted"] += 1
-                        for p in profiles:
+                        for p in matched:
                             summary["per_profile"][p] += 1
                         if len(summary["samples"]) < 8:
                             summary["samples"].append({
                                 "company": raw.company_name, "title": raw.job_title,
-                                "country": exp.get("country"), "profiles": list(profiles),
+                                "country": exp.get("country"), "profiles": list(matched),
                                 "experience_min": exp.get("min_experience_years"),
                                 "experience_max": exp.get("max_experience_years"),
                                 "apply_url": raw.job_url,
