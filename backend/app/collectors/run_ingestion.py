@@ -18,12 +18,37 @@ from typing import Any
 import httpx
 from datapulse_ingestion.connectors import CONNECTORS, Fetcher
 from datapulse_ingestion.models import RawJob
-from datapulse_ingestion.profiles import normalize_for_profiles
+from datapulse_ingestion.profiles import (normalize_for_profiles, PERSONA_IDS,
+    SAP_EXPERIENCED, SAP_STUDENT, DE_JUNIOR)
 
 ROOT=Path(__file__).resolve().parents[3]
 CRITERIA={"filters":{"min_distinct_tech_tags":3,"english_friendly_only":True,
     "min_resume_match_score":.70,"exclude_senior":True,
     "target_levels":["Working Student","Internship","Junior","Mid"]}}
+
+
+PROFILE_ALIASES = {
+    'sap_basis_5y': SAP_EXPERIENCED,
+    'sap_basis_experienced': SAP_EXPERIENCED,
+    'sap_basis_student': SAP_STUDENT,
+    'data_eng_junior': DE_JUNIOR,
+    'data_engineering_junior': DE_JUNIOR,
+}
+
+
+def resolve_profiles(selected:str|None)->tuple[str,...]:
+    if not selected:
+        return PERSONA_IDS
+    keys=[x.strip().lower() for x in selected.split(',') if x.strip()]
+    if not keys or any(x not in PROFILE_ALIASES for x in keys):
+        raise ValueError('Unknown target profile. Use: '+', '.join(sorted(PROFILE_ALIASES)))
+    return tuple(dict.fromkeys(PROFILE_ALIASES[x] for x in keys))
+
+
+def bool_arg(value:str)->bool:
+    if value.lower() in ('true','yes','1'):return True
+    if value.lower() in ('false','no','0'):return False
+    raise argparse.ArgumentTypeError('Expected true or false')
 
 
 def eligible_boards(path:Path,source:str|None=None,board_filter:str|None=None)->list[dict]:
@@ -66,15 +91,25 @@ async def push_batches(records:list[dict],api_base_url:str,token:str)->dict:
 
 async def collect(source_file:Path,*,source:str|None=None,board_filter:str|None=None,
                   dry_run:bool=True,target:str='api',api_base_url:str|None=None,max_boards:int=60,
-                  fixture_file:Path|None=None)->dict:
-    boards=eligible_boards(source_file,source,board_filter)[:max_boards]
-    summary={'dry_run':dry_run,'boards_attempted':len(boards),'boards_succeeded':0,
+                  fixture_file:Path|None=None,expand_registry:bool=False,
+                  target_profiles:str|None=None)->dict:
+    selected=resolve_profiles(target_profiles)
+    boards=eligible_boards(source_file,source,board_filter)
+    # Legacy 11 sources remain the default for the scheduled scanner until
+    # the expanded registry has been benchmarked and reviewed.
+    if not expand_registry and not source and not board_filter:
+        boards=boards[:11]
+    boards=boards[:max_boards]
+    summary={'dry_run':dry_run,'expanded_registry':expand_registry,
+             'target_profiles':list(selected),'per_profile':{p:{'accepted':0,'samples':[]} for p in selected},
+             'board_results':[],'boards_attempted':len(boards),'boards_succeeded':0,
              'jobs_seen':0,'accepted':0,'rejected':{},'errors':{},'inserted':0,'updated':0,
              'server_rejected':0,'sample_jobs':[]}
     if fixture_file and len(boards)!=1:raise ValueError('Fixture mode needs exactly one selected board')
     accepted=[]
     for board in boards:
         label=f"{board['type']}:{board['company']}"
+        board_result={'board':label,'seen':0,'accepted':0,'status':'pending'}
         try:
             connector=CONNECTORS[board['type']]
             if fixture_file:
@@ -86,17 +121,34 @@ async def collect(source_file:Path,*,source:str|None=None,board_filter:str|None=
                 fetched=await asyncio.to_thread(connector,board,Fetcher())
             summary['boards_succeeded']+=1
             summary['jobs_seen']+=len(fetched)
+            board_result.update({'seen':len(fetched),'status':'ok'})
             for raw in fetched:
                 job,reason=normalize_for_profiles(raw)
                 if job is None:
                     summary['rejected'][reason]=summary['rejected'].get(reason,0)+1
                     continue
+                matched=[p for p in job.persona_tags if p in selected]
+                if not matched:
+                    summary['rejected']['outside_selected_profiles']=summary['rejected'].get('outside_selected_profiles',0)+1
+                    continue
                 accepted.append(to_payload(raw))
+                board_result['accepted']+=1
+                for persona in matched:
+                    stats=summary['per_profile'][persona]
+                    stats['accepted']+=1
+                    if len(stats['samples'])<6:
+                        stats['samples'].append({'title':job.job_title,'company':job.company_name,
+                                                'country':job.country_code,'experience':job.min_experience_years,
+                                                'official_url':job.job_url})
                 if len(summary['sample_jobs'])<6:
                     summary['sample_jobs'].append({'title':job.job_title,'company':job.company_name,
                                                    'source':job.source_platform,'match':round(job.technical_match_score or 0,3),'personas':job.persona_tags})
         except Exception as exc:
-            summary['errors'][label]=f'{type(exc).__name__}: {str(exc)[:160]}'
+            error=f'{type(exc).__name__}: {str(exc)[:160]}'
+            summary['errors'][label]=error
+            board_result.update({'status':'failed','error':error})
+        finally:
+            summary['board_results'].append(board_result)
     summary['accepted']=len(accepted)
     if not dry_run and summary['accepted']:
         if target!='api':raise ValueError('Production writes require authenticated API target')
@@ -112,14 +164,25 @@ def main():
     parser.add_argument('--source',choices=sorted(CONNECTORS),default=None)
     parser.add_argument('--board',default=None)
     parser.add_argument('--max-boards',type=int,default=60)
-    parser.add_argument('--dry-run',action='store_true')
+    parser.add_argument('--expand-registry',action='store_true',help='Include newly verified public ATS feeds')
+    parser.add_argument('--target-profiles',default=None,
+        help='Comma-separated aliases: sap_basis_5y,sap_basis_student,data_eng_junior')
+    parser.add_argument('--dry-run',type=bool_arg,nargs='?',const=True,default=True,
+        help='True by default; --dry-run=false requires --apply')
+    parser.add_argument('--apply',action='store_true',
+        help='Explicit production write opt-in; requires authenticated API and --dry-run=false')
     parser.add_argument('--target',default='api',choices=['api'])
     parser.add_argument('--api-base-url',default=os.getenv('API_BASE_URL'))
     parser.add_argument('--fixture',type=Path,default=None,help='Local synthetic test fixture (never live data)')
     args=parser.parse_args()
+    if not args.dry_run and not args.apply:
+        parser.error('Refusing production writes without --apply')
+    if args.apply and args.dry_run:
+        parser.error('To apply writes, also specify --dry-run=false')
     report=asyncio.run(collect(args.source_file,source=args.source,board_filter=args.board,
          dry_run=args.dry_run,target=args.target,api_base_url=args.api_base_url,
-         max_boards=args.max_boards,fixture_file=args.fixture))
+         max_boards=args.max_boards,fixture_file=args.fixture,
+         expand_registry=args.expand_registry,target_profiles=args.target_profiles))
     print(json.dumps(report,ensure_ascii=False,indent=2))
     if report['errors'] or report['boards_succeeded']==0 or (not args.dry_run and report['accepted'] and report['inserted']+report['updated']<report['accepted']):
         raise SystemExit(2)
