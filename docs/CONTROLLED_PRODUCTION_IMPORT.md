@@ -22,7 +22,19 @@ completed. Check Supabase run records.
 Only registry entries with **both** `enabled: true` and
 `auto_import_approved: true` are eligible for production writes. Current
 bounded allowlist: GAMBIT Consulting (Personio), Nagarro (SmartRecruiters), Dow
-(Workday), and STATWORX (Personio). Other enabled ATS feeds remain read-only.
+(Workday), STATWORX (Personio), DYMATRIX (Personio), reeeliance (Personio),
+Bosch Group (SmartRecruiters), and T-Systems ICT India (SmartRecruiters).
+The latter four were added after read-only public-feed tests on 2026-11-09.
+All other enabled ATS feeds remain read-only; in particular, the taod Personio
+XML endpoint failed verification, so that source is disabled rather than
+auto-imported.
+
+The first unattended production run on 2026-11-09 (06:12 UTC) successfully
+scanned all four originally approved feeds, saw 104 vacancies, accepted one,
+updated one existing record, and inserted zero new rows, with no source errors.
+The distinct discovery scan checked 801 listings from 11 sources and was
+read-only. Adding feeds expands future coverage; it cannot guarantee more
+eligible jobs under the unchanged profile constraints.
 
 Every automatically imported job must additionally satisfy:
 

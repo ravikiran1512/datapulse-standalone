@@ -105,6 +105,39 @@
       "apply_url_template": "https://planorg.jobs.personio.de/job/{id}?language=en"
     },
     {
+      "type": "personio",
+      "company": "taod Consulting GmbH",
+      "board": "taod",
+      "enabled": false,
+      "auto_import_approved": false,
+      "countries": ["DE"],
+      "status": "feed_unavailable",
+      "reason": "Public Personio careers page exists, but /xml could not be fetched during the 2026-11-09 verification; fail closed.",
+      "apply_url_template": "https://taod.jobs.personio.de/job/{id}?language=en"
+    },
+    {
+      "type": "personio",
+      "company": "DYMATRIX",
+      "board": "dymatrix",
+      "enabled": true,
+      "auto_import_approved": true,
+      "max_auto_import": 5,
+      "countries": ["DE"],
+      "verification": "Public employer Personio XML returned 12 jobs without errors on 2026-11-09; all currently failed the unchanged eligibility filters.",
+      "apply_url_template": "https://dymatrix.jobs.personio.de/job/{id}?language=en"
+    },
+    {
+      "type": "personio",
+      "company": "reeeliance",
+      "board": "reeeliance",
+      "enabled": true,
+      "auto_import_approved": true,
+      "max_auto_import": 5,
+      "countries": ["DE"],
+      "verification": "Public employer Personio XML returned 6 jobs without errors on 2026-11-09; German-language prerequisites were correctly excluded.",
+      "apply_url_template": "https://reeeliance.jobs.personio.de/job/{id}?language=en"
+    },
+    {
       "type": "smartrecruiters",
       "company": "Nagarro",
       "board": "Nagarro1",
@@ -123,6 +156,32 @@
         "Data Engineer"
       ],
       "max_pages_per_query": 1
+    },
+    {
+      "type": "smartrecruiters",
+      "company": "Bosch Group",
+      "board": "BoschGroup",
+      "enabled": true,
+      "auto_import_approved": true,
+      "max_auto_import": 5,
+      "countries": ["DE", "IN"],
+      "verification": "Public employer SmartRecruiters Posting API returned successful search results on 2026-11-09; direct employer SAP Basis listing verified against official SmartRecruiters URL.",
+      "queries": ["SAP Basis Consultant", "SAP Basis Administrator", "Junior Data Engineer"],
+      "max_pages_per_query": 1,
+      "max_detail_jobs": 12
+    },
+    {
+      "type": "smartrecruiters",
+      "company": "T-Systems ICT India Pvt. Ltd.",
+      "board": "t-systemsictindiapvtltd1",
+      "enabled": true,
+      "auto_import_approved": true,
+      "max_auto_import": 5,
+      "countries": ["IN"],
+      "verification": "Public employer SmartRecruiters Posting API returned 2 SAP-related jobs without errors on 2026-11-09; neither passed experience and role constraints.",
+      "queries": ["SAP Basis", "SAP NetWeaver"],
+      "max_pages_per_query": 1,
+      "max_detail_jobs": 12
     },
     {
       "type": "workday",
@@ -210,6 +269,18 @@
         "data engineer"
       ],
       "max_pages_per_query": 1
+    },
+    {
+      "type": "workday",
+      "company": "Danaher",
+      "career_url": "https://danaher.wd1.myworkdayjobs.com/en-US/danaherjobs",
+      "enabled": true,
+      "auto_import_approved": false,
+      "countries": ["DE", "IN"],
+      "status": "candidate_read_only",
+      "queries": ["SAP Basis", "Data Engineer"],
+      "max_pages_per_query": 1,
+      "max_detail_jobs": 12
     },
     {
       "type": "workday",

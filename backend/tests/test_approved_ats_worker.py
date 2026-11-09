@@ -73,6 +73,36 @@ def test_personio_and_smartrecruiters_host_validation():
     assert not worker.approved_source_url(raw,nagarro)
 
 
+@pytest.mark.parametrize('company,good_url,wrong_url', [
+    ('Bosch Group',
+     'https://jobs.smartrecruiters.com/BoschGroup/744000157767858-sap-basis-consultant',
+     'https://jobs.smartrecruiters.com/OtherEmployer/744000157767858'),
+    ('T-Systems ICT India Pvt. Ltd.',
+     'https://jobs.smartrecruiters.com/t-systemsictindiapvtltd1/744000152598440',
+     'https://jobs.smartrecruiters.com/BoschGroup/744000152598440'),
+    ('DYMATRIX',
+     'https://dymatrix.jobs.personio.de/job/665763?language=en',
+     'https://other.jobs.personio.de/job/665763'),
+    ('reeeliance',
+     'https://reeeliance.jobs.personio.de/job/2801032?language=en',
+     'https://other.jobs.personio.de/job/2801032'),
+])
+def test_expanded_production_sources_are_bound_to_own_employer(company,good_url,wrong_url):
+    boards=worker.eligible_boards(worker.ROOT/'config'/'verified-boards.json',approved_only=True)
+    board=next(x for x in boards if x['company']==company)
+    platform=worker.SOURCE_PLATFORMS[board['type']]
+    raw=RawJob(source_platform=platform,source_id=f'{company}:example',company_name=company,
+               job_title='SAP Basis Consultant',location='Berlin, Germany',job_url=good_url)
+    assert worker.approved_source_url(raw,board)
+    raw.job_url=wrong_url
+    assert not worker.approved_source_url(raw,board)
+
+
+def test_unreachable_personio_feed_remains_disabled():
+    boards=worker.eligible_boards(worker.ROOT/'config'/'verified-boards.json')
+    assert not any(x.get('board')=='taod' for x in boards)
+
+
 def test_conflicting_ats_entry_level_and_experienced_prose_is_excluded():
     """Observed on a live German SAP Basis posting: full-time != student."""
     raw=RawJob(
