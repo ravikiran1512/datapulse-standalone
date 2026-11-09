@@ -59,7 +59,7 @@ def test_5_year_bracket_literal_and_german_ranges():
 
 @pytest.mark.parametrize('job_title,loc,desc,accepted',[
     ('SAP Basis Werkstudent','Munich, Germany','Student work in SAP Basis.',True),
-    ('SAP Basis Intern','India','SAP Basis internships.',False),
+    ('SAP Basis Intern','India','SAP Basis internships.',True),
     ('SAP FICO Consultant','Germany','Requirements: 5 years of SAP FICO.',False),
     ('Senior Data Engineer','Berlin, Germany','2 years of experience. English Python SQL Databricks Spark.',False),
     ('Junior Data Engineer','Magdeburg, Germany','3+ years of experience. English Python SQL Databricks Spark.',False),
@@ -70,11 +70,11 @@ def test_three_profiles_hard_constraints(job_title,loc,desc,accepted):
     assert (j is not None)==accepted
 
 
-def test_student_mapped_zero_without_years_gate():
+def test_student_unknown_experience_is_not_fabricated():
     j,reason=normalize_for_profiles(make_job('SAP Basis Working Student','Berlin, Germany',
         'We provide SAP Basis training, no prior experience required.'))
     assert j and j.persona_tags==[SAP_STUDENT]
-    assert j.min_experience_years==0 and j.max_experience_years is None
+    assert j.min_experience_years is None and j.max_experience_years is None
 
 
 def test_sap_role_never_inferred_from_functional_sap_fico():
@@ -172,11 +172,12 @@ def test_combined_dry_run_zero_production_writes(tmp_path,monkeypatch):
     assert x['boards_succeeded']==1
 
 
-def test_personio_generic_entry_level_is_not_student_role():
+def test_personio_generic_entry_level_qualifies_as_junior_not_internship():
     raw=make_job('SAP Basis Consultant (m/w/d)','Germany', '',
                  job_level='entry-level',employment_type='permanent')
     j,reason=normalize_for_profiles(raw)
-    assert j is None and reason=='not_eligible_for_selected_personas'
+    assert j is not None and reason=='accepted'
+    assert j.job_level=='Junior' and j.employment_type!='Werkstudent'
 
 
 def test_personio_real_student_contract_can_qualify():

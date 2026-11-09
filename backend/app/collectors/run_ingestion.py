@@ -24,8 +24,8 @@ from datapulse_ingestion.profiles import (normalize_for_profiles, PERSONA_IDS,
 from app.link_checker import inspect_link, safe_ats_url
 
 ROOT=Path(__file__).resolve().parents[3]
-CRITERIA={"filters":{"min_distinct_tech_tags":3,"english_friendly_only":True,
-    "min_resume_match_score":.70,"exclude_senior":True,
+CRITERIA={"filters":{"min_distinct_tech_tags":0,"english_friendly_only":False,
+    "min_resume_match_score":0,"exclude_senior":True,
     "target_levels":["Working Student","Internship","Junior","Mid"]}}
 
 

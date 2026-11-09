@@ -109,7 +109,7 @@ GET /api/v1/jobs?persona=data_engineering_junior&country=DE
 GET /api/v1/profiles
 ```
 
-Presets: **SAP Basis Experienced** (Germany/India, published minimum experience 3–6 years, exclude >8 upper limits), **SAP Basis Student / Entry** (Germany, internship/working student/junior, no experience restriction), and **Data Engineering Junior / Entry** (Germany, advertised experience requirement <= 2 years, excluding generic roles with no experience evidence). Presets are combined using **OR** and each preset retains its own country/experience requirements; any optional country/region/work-mode/skill filter narrows the results.
+Presets: **SAP Basis** (Germany/India, employer's published minimum required experience at most 5 years or not specified) and **Data Engineering** (Germany/India, minimum required experience at most 2 years or not specified). The database retains three legacy `persona_tags` for backward compatibility, while the website groups the two SAP tags into one SAP Basis track. Working Student, Internship, Junior, and Full-Time positions are included. A 70% technical match is **never** required for ingestion; ranking still uses the score. German-required jobs are accepted and the language is shown on their cards. Search filters remain optional; public jobs require a verified **live** official ATS URL.
 
 Ingested job records include `country_code` (`DE` / `IN`), nullable `min_experience_years` and `max_experience_years` (unknown is **not zero**), `experience_evidence`, and `persona_tags`. Do not treat `SAP Basis` relevance scores as resume cosine scores: SAP uses a role-based relevance heuristic while Data Engineering uses the existing technical skill cosine score. Browser bookmarks remain intact. The scan endpoint remains strictly read-only; production writes require separate authenticated ingestion.
 
@@ -120,9 +120,10 @@ Ingested job records include `country_code` (`DE` / `IN`), nullable `min_experie
 ## SAP Basis registry expansion (India + Germany, November 2026)
 
 The repository now supports the three profile presets for a verified subset of public
-career feeds: SAP Basis experienced (3–6 years, including qualifying Senior titles),
-SAP Basis student/entry (Germany, experience waived), and Data Engineering junior
-(Germany, at most 2 years). These are distinct policy filters.
+career feeds: SAP Basis (Germany and India, at most five required years or unknown)
+and Data Engineering (Germany and India, at most two required years or unknown).
+Existing API persona aliases remain valid. Unknown years are displayed as
+"Experience not specified" and never fabricated as zero.
 
 ### Read-only live scan
 

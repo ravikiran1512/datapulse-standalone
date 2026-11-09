@@ -47,14 +47,16 @@ def test_fit_breakdown_not_claim_personal_resume():
     assert 'not a personal resume' in b['method']
 
 
-def test_de_junior_rejects_explicit_range_0_to_5():
-    assert not persona_matches(raw('Junior Data Engineer'),'DE',Experience(0,5,'0-5 years'))
+def test_de_role_uses_minimum_required_experience():
+    assert persona_matches(raw('Junior Data Engineer'),'DE',Experience(0,5,'0-5 years')) == (DE_JUNIOR,)
+    assert not persona_matches(raw('Junior Data Engineer'),'DE',Experience(3,5,'3-5 years'))
 
 
-def test_sap_experienced_strict_3_to_6():
+def test_sap_basis_accepts_at_most_five_required_years():
     r=raw('Senior SAP Basis Consultant','Bengaluru, India')
     assert SAP_EXPERIENCED in persona_matches(r,'IN',Experience(5,6,'5-6 years'))
-    assert not persona_matches(r,'IN',Experience(5,8,'5-8 years'))
+    assert SAP_EXPERIENCED in persona_matches(r,'IN',Experience(5,8,'5-8 years'))
+    assert not persona_matches(r,'IN',Experience(6,8,'6-8 years'))
 
 
 def test_no_persona_by_default_means_three_filtered_tracks():

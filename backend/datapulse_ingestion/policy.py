@@ -118,10 +118,12 @@ def language(text: str) -> tuple[str, bool]:
         r"|\b(?:sehr\s+gute|ausgezeichnete|flie\u00dfende|verhandlungssichere)\s+deutsch\w*\b",
         text, re.I,
     ))
-    if en and de: return "Bilingual",not de_hard
-    if de: return "German",False
-    if en: return "English",True
-    return "Unknown",False
+    if de_hard:
+        return ("German required · English mentioned" if en else "German required"),False
+    if en and de:return "English & German mentioned",True
+    if de:return "German mentioned",False
+    if en:return "English mentioned",True
+    return "Not specified",False
 
 
 def employment(title: str, desc: str, explicit: str | None = None) -> str:

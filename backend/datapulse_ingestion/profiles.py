@@ -1,4 +1,4 @@
-"""Independent, auditable eligibility rules for the three DataPulse search personas.
+"""Independent, auditable eligibility rules for DataPulse's two job families.
 
 Unknown experience is NOT 0 years. Geographic scope is explicit; a generic
 'worldwide remote' job is not assumed available in Germany or India.
@@ -189,36 +189,29 @@ def normalize_geo(raw: RawJob,country:str)->tuple[str,str]:
 
 def persona_matches(raw:RawJob, country:str, exp:Experience) -> tuple[str,...]:
     title=clean(raw.job_title)
-    combined=f'{title} {raw.job_level or ""}'
     if EXCLUDE_ROLE.search(title) or re.search(r'\b(?:director|head\s+of|vice\s+president|vp|chief|principal|staff|architect)\b',title,re.I):
         return ()
     if SAP_BASIS_ROLE.search(title):
-        # Student/intern contracts are distinct from permanent entry-level jobs.
-        # An ATS "entry-level" label needs corroborating <=2y requirements.
+        # Include entry through five years in both target countries. A stated
+        # minimum is the eligibility threshold: a 3–6-year range includes
+        # candidates with five years. Missing evidence remains NULL, not zero.
+        if exp.minimum is not None and exp.minimum>5:return ()
+        if exp.minimum is None and SENIOR.search(title):return ()
         contract=raw.employment_type or ''
         explicit_title=bool(STUDENT.search(title) or INTERN.search(title) or JUNIOR.search(title))
         student_contract=bool(re.search(r'\b(?:werkstudent(?:in)?|working\s+student|'
                               r'intern(?:ship)?|praktik(?:um|ant|antin)|trainee)\b',contract,re.I))
-        student=explicit_title or student_contract
         entry_level=(str(raw.job_level or '').lower().replace('_','-') in ('entry-level','entry level','junior')
-                     and exp.minimum is not None and exp.minimum<=2
-                     and (exp.maximum is None or exp.maximum<=2))
-        if student or entry_level:
-            return (SAP_STUDENT,) if country=='DE' and not SENIOR.search(title) else ()
-        # A title may say Senior despite an explicit five-year requirement.
-        # Do not confuse the title with the numeric experience constraint.
-        # Experienced only with explicit, credible evidence of ~5 years.
-        if exp.minimum is not None and 3<=exp.minimum<=6 and (exp.maximum is None or (3<=exp.maximum<=6)):
-            return (SAP_EXPERIENCED,) if country in ('DE','IN') else ()
-        return ()
-    if country!='DE' or not ROLE.search(title):
+                     and (exp.minimum is None or exp.minimum<=2))
+        if explicit_title or student_contract or entry_level:
+            return (SAP_STUDENT,) if country in ('DE','IN') else ()
+        return (SAP_EXPERIENCED,) if country in ('DE','IN') else ()
+    if country not in ('DE','IN') or not ROLE.search(title):
         return ()
     if SENIOR.search(title):return ()
-    # A requirement of >=3 years is always excluded. Unknown experience is
-    # eligible ONLY if the title explicitly identifies a junior/student role.
-    if (exp.minimum is not None and exp.minimum>2) or (exp.maximum is not None and exp.maximum>2):return ()
-    explicit_junior=bool(STUDENT.search(combined) or INTERN.search(combined) or JUNIOR.search(combined))
-    if not explicit_junior and exp.minimum is None:return ()
+    # Full-time roles count too. Unknown experience is explicitly shown as
+    # unverified; neither a language nor a technical match threshold excludes.
+    if exp.minimum is not None and exp.minimum>2:return ()
     return (DE_JUNIOR,)
 
 
@@ -226,13 +219,13 @@ def normalize_for_profiles(raw:RawJob)->tuple[Job|None,str]:
     location_country=country_of(raw)
     if location_country is None:return None,'unverified_target_country'
     exp=combine_structured_experience(raw,parse_experience(raw.description))
+    if exp.minimum is None and exp.evidence:
+        return None,'ambiguous_experience_evidence'
     personas=persona_matches(raw,location_country,exp)
     contract=f'{raw.job_title} {raw.employment_type or ""}'
     if (SAP_STUDENT in personas and not (STUDENT.search(contract) or INTERN.search(contract))
             and EXPERIENCED_PROSE.search(raw.description or '')):
         return None,'experienced_prose_conflicts_with_entry_level'
-    if exp.evidence and exp.minimum is None and SAP_STUDENT not in personas:
-        return None,'ambiguous_experience_evidence'
     if not personas:return None,'not_eligible_for_selected_personas'
     url=urlsplit(raw.job_url or '')
     if url.scheme!='https' or not url.hostname or url.username or url.password:
@@ -243,27 +236,20 @@ def normalize_for_profiles(raw:RawJob)->tuple[Job|None,str]:
     tags=list(dict.fromkeys(tags+sap_tags))
     lang,is_english=language(raw.description)
     if DE_JUNIOR in personas:
-        # Keep existing production engineering skill coverage & 70% profile fit.
+        # The match score is for sorting and display, never an eligibility gate.
         score=skill_cosine(tags)
-        required={'Python','SQL','PySpark','Apache Spark','Databricks','Hadoop','SAP'}
-        if len(set(tags))<3 or len(set(tags)&required)<2:
-            return None,'insufficient_de_technologies'
-        if not is_english:return None,'english_unverified_or_german_required'
-        if score<.70:return None,'below_70_percent_cosine'
     else:
         # SAP technical-role relevance, not resume embedding similarity.
         score=min(.95,.75+.035*len(sap_tags))
     contract=raw.employment_type or ''
     is_working_student=bool(STUDENT.search(raw.job_title+' '+contract))
     is_intern=bool(INTERN.search(raw.job_title+' '+contract))
-    is_entry_role=SAP_STUDENT in personas and not (is_working_student or is_intern)
+    is_entry_role=(str(raw.job_level or '').lower().replace('_','-') in
+                   ('entry-level','entry level','junior') and
+                   (exp.minimum is None or exp.minimum<=2))
     job_level='Working Student' if is_working_student else (
         'Internship' if is_intern else (
-        'Junior' if JUNIOR.search(raw.job_title) or DE_JUNIOR in personas or is_entry_role else 'Mid'))
-    # Actual student/intern contracts bypass required experience; permanent
-    # entry-level vacancies retain the employer's explicit years evidence.
-    effective_exp=(Experience(0,None,'Student/intern contract: experience not enforced')
-                   if SAP_STUDENT in personas and not is_entry_role else exp)
+        'Junior' if JUNIOR.search(raw.job_title) or is_entry_role else 'Mid'))
     item=Job(job_title=clean(raw.job_title),company_name=clean(raw.company_name),
         location=loc,city=city,work_model=work_model(raw.location,raw.description,raw.work_model),
         employment_type=employment(raw.job_title,raw.description,raw.employment_type),
@@ -272,7 +258,7 @@ def normalize_for_profiles(raw:RawJob)->tuple[Job|None,str]:
         source_platform=raw.source_platform,date_posted=valid_date(raw.date_posted),
         datapulse_fit_score=f'{round(score*100)}%',source_key=raw.source_key,
         date_evidence=raw.date_evidence,
-        country_code=location_country,min_experience_years=effective_exp.minimum,
-        max_experience_years=effective_exp.maximum,experience_evidence=effective_exp.evidence,
+        country_code=location_country,min_experience_years=exp.minimum,
+        max_experience_years=exp.maximum,experience_evidence=exp.evidence,
         persona_tags=list(personas),technical_match_score=score,is_english_friendly=is_english)
     return item,'accepted'

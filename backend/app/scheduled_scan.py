@@ -13,6 +13,7 @@ import os
 from pathlib import Path
 from datetime import date
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 
@@ -30,9 +31,19 @@ async def persist_approved_batch(pool,records):
     """Persist only prefiltered, live-link-verified candidates on this server."""
     result={'inserted':0,'updated':0}
     for raw,normalized in records:
-        action,_=await upsert_job(pool,normalized,raw.description)
+        action,job_id=await upsert_job(pool,normalized,raw.description)
         if action not in ('inserted','updated'):
             raise RuntimeError('Unexpected approved job upsert result')
+        # collect() has already confirmed the exact official URL by HEAD+GET.
+        # Persist that verification before it can appear in the public API;
+        # uncertain/unchecked listings remain hidden until revalidated.
+        status=await pool.execute('''UPDATE datapulse.jobs SET
+            link_status='live',link_failures=0,last_link_checked_at=now(),
+            link_last_confirmed_at=now(),
+            link_detail='Official ATS link reverified during approved ingestion'
+            WHERE id=$1 AND official_apply_url=$2''',UUID(job_id),normalized.job_url)
+        if status!='UPDATE 1':
+            raise RuntimeError('Verified ATS URL did not match the persisted job')
         result[action]+=1
     return result
 

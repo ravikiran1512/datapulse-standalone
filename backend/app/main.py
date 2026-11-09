@@ -120,21 +120,23 @@ async def jobs(
 ):
     pool=db(request)
     params=[]
-    conditions=['is_active=TRUE','needs_review=FALSE']
-    # Combined personas use OR: each preset retains its own country + experience
-    # constraints. Never treat a NULL experience as 0 years.
+    # A job is public only after the official ATS link has been confirmed live.
+    conditions=['is_active=TRUE','needs_review=FALSE',"link_status='live'"]
+    # Both career families target DE + IN. Unknown experience is reviewable,
+    # never represented as a confirmed zero-year requirement. A range whose
+    # minimum fits the threshold can be suitable for the target applicant.
     selections=persona or list(PERSONA_IDS)
     params.append(selections)
     profiles=f'''(
       ('sap_basis_experienced'=ANY($1::text[]) AND 'sap_basis_experienced'=ANY(persona_tags)
-        AND country_code IN ('DE','IN') AND min_experience_years BETWEEN 3 AND 6
-        AND (max_experience_years IS NULL OR max_experience_years <= 6))
+        AND country_code IN ('DE','IN')
+        AND (min_experience_years IS NULL OR min_experience_years <= 5))
       OR ('sap_basis_student'=ANY($1::text[]) AND 'sap_basis_student'=ANY(persona_tags)
-        AND country_code='DE' AND level IN ('Working Student','Internship','Junior'))
+        AND country_code IN ('DE','IN')
+        AND (min_experience_years IS NULL OR min_experience_years <= 5))
       OR ('data_engineering_junior'=ANY($1::text[]) AND 'data_engineering_junior'=ANY(persona_tags)
-        AND country_code='DE' AND level IN ('Working Student','Internship','Junior')
-        AND (min_experience_years IS NULL OR min_experience_years<=2)
-        AND (max_experience_years IS NULL OR max_experience_years<=2))
+        AND country_code IN ('DE','IN')
+        AND (min_experience_years IS NULL OR min_experience_years <= 2))
     )'''
     conditions.append(profiles)
     if country:
@@ -185,12 +187,12 @@ async def jobs(
 @app.get('/api/v1/profiles')
 async def available_profiles():
     return {'profiles':[
-        {'id':SAP_EXPERIENCED,'label':'SAP Basis · Experienced','countries':['DE','IN'],
-         'experience':'3–6 years (around 5)','min_experience_years':3,'max_experience_years':6},
-        {'id':SAP_STUDENT,'label':'SAP Basis · Student / Entry','countries':['DE'],
-         'experience':'Not restricted','min_experience_years':None,'max_experience_years':None},
-        {'id':DE_JUNIOR,'label':'Data Engineering · Junior / Entry','countries':['DE'],
-         'experience':'Up to 2 years','min_experience_years':0,'max_experience_years':2},
+        {'id':SAP_EXPERIENCED,'label':'SAP Basis · Up to 5 years','countries':['DE','IN'],
+         'experience':'0–5 years required, or not specified','min_experience_years':0,'max_experience_years':5},
+        {'id':SAP_STUDENT,'label':'SAP Basis · Student / Entry','countries':['DE','IN'],
+         'experience':'0–5 years required, or not specified','min_experience_years':0,'max_experience_years':5},
+        {'id':DE_JUNIOR,'label':'Data Engineering · Up to 2 years','countries':['DE','IN'],
+         'experience':'0–2 years required, or not specified','min_experience_years':0,'max_experience_years':2},
     ]}
 
 
@@ -198,7 +200,8 @@ async def available_profiles():
 async def source_stats(request:Request):
     pool=db(request)
     rows=await pool.fetch('''SELECT source_name,source_type::text,COUNT(*) AS total
-      FROM datapulse.jobs WHERE is_active AND NOT needs_review GROUP BY source_name,source_type
+      FROM datapulse.jobs WHERE is_active AND NOT needs_review AND link_status='live'
+      GROUP BY source_name,source_type
       ORDER BY total DESC''')
     return {'sources':[dict(x) for x in rows]}
 
@@ -236,8 +239,8 @@ def check_ingest_auth(authorization:Annotated[str|None,Header()]=None):
 
 
 DEFAULT_CRITERIA={
- 'filters':{'min_distinct_tech_tags':3,'english_friendly_only':True,
-            'min_resume_match_score':.70,'exclude_senior':True,
+ 'filters':{'min_distinct_tech_tags':0,'english_friendly_only':False,
+            'min_resume_match_score':0,'exclude_senior':True,
             'target_levels':['Working Student','Internship','Junior','Mid']}
 }
 

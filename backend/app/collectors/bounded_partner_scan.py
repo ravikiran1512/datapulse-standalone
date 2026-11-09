@@ -38,51 +38,14 @@ SOURCES=("sap_partners","databricks_partners","softgarden","successfactors")
 
 
 def strict_preproduction_job(raw:RawJob)->tuple[tuple[str,...],str,dict]:
-    """The requested PREPRODUCTION boundaries (SAP 3-6, DE <=2, students exempt)."""
+    """Reuse the production eligibility policy for read-only partner discovery."""
     country=country_of(raw)
-    if country not in ("DE","IN"):
-        return (),"country_unverified",{}
     exp=combine_structured_experience(raw,parse_experience(raw.description))
-    title=raw.job_title or ""
-    contract=(raw.employment_type or "")+" "+title
     details={"country":country,"min_experience_years":exp.minimum,
              "max_experience_years":exp.maximum,"experience_evidence":exp.evidence}
-    if EXECUTIVE_ROLE.search(title):
-        return (),"executive_or_principal",details
-    basis=bool(SAP_BASIS_ROLE.search(title) or
-               (SAP_SYSTEM_ROLE.search(title) and STUDENT_ROLE.search(contract)))
-    if basis:
-        student=bool(STUDENT_ROLE.search(contract))
-        junior=bool(JUNIOR.search(title) or re.search(r"\b(?:junior|entry[- ]level)\b",str(raw.job_level or ""),re.I))
-        if student or junior:
-            if country=="DE":
-                return (SAP_STUDENT,),"accepted_sap_student_or_entry",details
-            return (),"sap_entry_outside_germany",details
-        if exp.minimum is None or exp.maximum is None:
-            return (),"sap_3_to_6_experience_unverified",details
-        if 3<=exp.minimum<=exp.maximum<=6:
-            return (SAP_EXPERIENCED,),"accepted_sap_experienced",details
-        return (),"sap_outside_3_to_6_years",details
-    if not ROLE.search(title):
-        return (),"unrelated_role",details
-    if country!="DE":
-        return (),"data_engineering_outside_germany",details
-    if SENIOR.search(title) or re.search(r"\b(?:lead|manager|principal)\b",title,re.I):
-        return (),"senior_de_role",details
-    if exp.minimum is not None and exp.minimum>=3:
-        return (),"de_3_plus_years",details
-    if exp.maximum is not None and exp.maximum>2:
-        return (),"de_3_plus_years",details
-    if exp.minimum is None and not STUDENT_ROLE.search(contract):
-        return (),"de_experience_unverified",details
-    if exp.minimum is not None and exp.maximum is None and exp.minimum==2 and not (
-        JUNIOR.search(title) or STUDENT_ROLE.search(contract)):
-        return (),"de_2_plus_unbounded_review",details
-    # Keep pre-existing skills, language and minimum fit-score guards.
     normalized,reason=normalize_for_profiles(raw)
-    if not normalized or DE_JUNIOR not in normalized.persona_tags:
-        return (),"de_quality_"+reason,details
-    return (DE_JUNIOR,),"accepted_de_entry",details
+    return ((tuple(normalized.persona_tags),"accepted",details) if normalized
+            else ((),reason,details))
 
 
 def _source_ecosystems(sources:set[str])->set[str]:

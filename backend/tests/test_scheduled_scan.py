@@ -83,12 +83,22 @@ async def test_disabled_writer_never_imports(monkeypatch):
 @pytest.mark.asyncio
 async def test_render_persist_preserves_source_description_and_counts(monkeypatch):
     calls=[]
+    from uuid import uuid4
+    job_id=str(uuid4())
     async def fake_upsert(pool,job,description):
         calls.append((job,description))
-        return ('inserted' if job=='first' else 'updated','stable-uuid')
+        return ('inserted' if job.job_title=='first' else 'updated',job_id)
     monkeypatch.setattr(scheduled_scan,'upsert_job',fake_upsert)
-    records=[(SimpleNamespace(description='first official description'),'first'),
-             (SimpleNamespace(description='second official description'),'second')]
-    result=await scheduled_scan.persist_approved_batch(object(),records)
+    class Pool:
+        async def execute(self,sql,*args):
+            calls.append(('verify-live',sql,args))
+            return 'UPDATE 1'
+    records=[(SimpleNamespace(description='first official description'),SimpleNamespace(job_title='first',job_url='https://official.example/job/1')),
+             (SimpleNamespace(description='second official description'),SimpleNamespace(job_title='second',job_url='https://official.example/job/2'))]
+    result=await scheduled_scan.persist_approved_batch(Pool(),records)
     assert result=={'inserted':1,'updated':1}
-    assert calls==[('first','first official description'),('second','second official description')]
+    assert [c[1] for c in calls if len(c)==2]==['first official description','second official description']
+    verified=[c for c in calls if c[0]=='verify-live']
+    assert len(verified)==2
+    assert all("link_status='live'" in c[1] for c in verified)
+    assert [c[2][1] for c in verified]==['https://official.example/job/1','https://official.example/job/2']

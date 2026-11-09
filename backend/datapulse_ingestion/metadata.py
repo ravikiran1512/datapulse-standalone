@@ -64,12 +64,12 @@ def match_breakdown(domain: str,tags:list[str],personas:list[str],minimum:int|No
     expected=(['SAP Basis','SAP NetWeaver','SAP HANA','SAP S/4HANA','Linux','SAP BTP']
               if domain=='SAP Basis' else ['Python','SQL','PySpark','Databricks','Apache Spark','Delta Lake','dbt','Airflow'])
     actual=set(tags)
-    if 'data_engineering_junior' in personas:
-        fit='Targets 0–2 years' if minimum is None or minimum<=2 else 'Review requirement'
-    elif 'sap_basis_experienced' in personas:
-        fit='Targets approximately 3–6 years'
-    elif 'sap_basis_student' in personas:
-        fit='Student / entry-level preset; contract type still matters'
+    if minimum is None:
+        fit='Experience not specified; confirm the requirement with the employer'
+    elif 'data_engineering_junior' in personas:
+        fit='Minimum requirement fits 0–2 years' if minimum<=2 else 'Review requirement'
+    elif 'sap_basis_experienced' in personas or 'sap_basis_student' in personas:
+        fit='Minimum requirement fits 0–5 years' if minimum<=5 else 'Review requirement'
     else:
         fit='Profile eligibility not established'
     return {'matched_skills':[x for x in expected if x in actual],

@@ -39,9 +39,15 @@ eligible jobs under the unchanged profile constraints.
 Every automatically imported job must additionally satisfy:
 
 - A configured employer name, ATS type, exact approved posting hostname/path.
-- All three existing profile-specific country/experience/role constraints.
-- For junior Data Engineering, the English requirement, technical tags and
-  >=70% weighted technical match must remain intact.
+- Data Engineering positions in Germany **or India** with 0–2 years of
+  advertised *minimum* required experience, or with experience not specified.
+- SAP Basis positions in Germany **or India** with 0–5 years of advertised
+  *minimum* required experience, or with experience not specified.
+- Working Student, Internship, Junior, and Full-Time positions are eligible
+  when they meet the role/country/experience rules. Unknown experience stays
+  `NULL` and is shown as **Experience not specified**.
+- German-language requirements are displayed; language is never an automatic
+  exclusion. Technical/role scores support ranking, not an automatic 70% gate.
 - A live, direct employer ATS application URL confirmed by bounded HEAD+GET;
   inaccessible, ambiguous, closed, or redirected-to-unapproved links are skipped.
 - A maximum of five accepted jobs per approved board by default (board config
@@ -52,8 +58,11 @@ Every automatically imported job must additionally satisfy:
 The server-side importer applies the shared profile validation and performs
 normalized company/title/location UPSERTs with stable job IDs and source provenance.
 Closed links are only deactivated after two confirmed checks; rows and user
-bookmarks are never deleted. A repeated import of the same official URL does
-not discard a previously confirmed `live` status.
+bookmarks are never deleted. The public jobs and sources endpoints expose only
+records marked **live**, active, and not requiring review; newly approved
+imports mark their exact verified employer URL live after the server UPSERT.
+Uncertain or unchecked links never appear publicly. A repeated import of the
+same official URL does not discard a previously confirmed `live` status.
 
 The employer's prose takes priority when an entry-level label conflicts with
 an explicit multi-year experience requirement. For example, the live GAMBIT

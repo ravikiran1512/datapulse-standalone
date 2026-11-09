@@ -29,8 +29,9 @@ def test_combined_persona_country_query_is_parameterized(monkeypatch):
     assert r.json()['total']==0
     queries=' '.join(sql for sql,args in pool.conn.calls)
     assert 'country_code=$2' in queries
-    assert 'country_code IN' in queries and 'min_experience_years BETWEEN 3 AND 6' in queries
-    assert "country_code='DE'" in queries
+    assert "country_code IN ('DE','IN')" in queries
+    assert 'min_experience_years <= 5' in queries and 'min_experience_years <= 2' in queries
+    assert "link_status='live'" in queries
     assert pool.conn.calls[0][1][0]==['sap_basis_experienced','sap_basis_student']
     assert pool.conn.calls[0][1][1]=='IN'
 

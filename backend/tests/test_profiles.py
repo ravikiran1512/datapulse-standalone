@@ -38,24 +38,28 @@ def test_sap_experienced_germany_and_remote_india():
         assert why=='accepted' and j.country_code==code and j.max_experience_years==6
 
 
-def test_sap_experienced_rejects_junior_or_executive_or_unknown():
-    for desc in ['2 years of experience. '+SAP_TECH,'9+ years of experience. '+SAP_TECH,'SAP Basis and SAP NetWeaver']:
+def test_sap_experienced_accepts_0_to_5_or_unknown_but_rejects_over_five():
+    for desc in ['2 years of experience. '+SAP_TECH,'SAP Basis and SAP NetWeaver']:
         j,_=normalize_for_profiles(job(desc=desc))
-        assert j is None
+        assert j is not None and j.persona_tags==[SAP_EXPERIENCED]
+    j,_=normalize_for_profiles(job(desc='9+ years of experience. '+SAP_TECH))
+    assert j is None
     j,_=normalize_for_profiles(job(title='Head of SAP Basis',desc='5 years of experience. '+SAP_TECH))
     assert j is None
 
 
-def test_sap_student_germany_bypasses_experience_even_10_years():
+def test_sap_student_entry_roles_share_five_years_cap():
     for title in ['SAP Basis Werkstudent','SAP Basis Intern','SAP Basis Trainee','SAP Basis Junior Consultant']:
-        j,why=normalize_for_profiles(job(title=title,location='Hamburg, Germany',desc='10+ years of experience with SAP Basis'))
+        j,why=normalize_for_profiles(job(title=title,location='Hamburg, Germany',desc='Up to 2 years of SAP Basis experience'))
         assert why=='accepted' and j.persona_tags==[SAP_STUDENT]
         assert j.country_code=='DE'
+        rejected,_=normalize_for_profiles(job(title=title,location='Germany',desc='10+ years of experience with SAP Basis'))
+        assert rejected is None
 
 
-def test_sap_student_never_india():
+def test_sap_intern_is_included_in_india():
     j,_=normalize_for_profiles(job(title='SAP Basis Intern',location='Mumbai, India'))
-    assert j is None
+    assert j is not None and j.persona_tags==[SAP_STUDENT] and j.country_code=='IN'
 
 
 def test_data_junior_requires_germany_max_two_years():
@@ -69,18 +73,39 @@ def test_data_junior_requires_germany_max_two_years():
         assert result is None
 
 
-def test_data_junior_unknown_only_if_explicit_junior_title():
+def test_data_engineer_with_unknown_experience_is_included_without_inventing_zero():
     desc='Excellent English; Python SQL PySpark Databricks Azure Spark'
     a,_=normalize_for_profiles(job(title='Data Engineer',location='Germany',desc=desc))
     b,_=normalize_for_profiles(job(title='Junior Data Engineer',location='Germany',desc=desc))
-    assert a is None and b is not None
+    assert a is not None and b is not None
+    assert a.min_experience_years is None and b.min_experience_years is None
 
 
-def test_data_junior_never_india_or_global_remote():
+def test_data_junior_in_india_but_not_ambiguous_global_remote():
     desc='2 years of experience. Excellent English. '+DE_TECH
-    for location in ['Bengaluru, India','Remote worldwide']:
-        j,_=normalize_for_profiles(job(title='Junior Data Engineer',location=location,desc=desc))
-        assert j is None
+    india,_=normalize_for_profiles(job(title='Junior Data Engineer',location='Bengaluru, India',desc=desc))
+    ambiguous,_=normalize_for_profiles(job(title='Junior Data Engineer',location='Remote worldwide',desc=desc))
+    assert india is not None and india.country_code=='IN'
+    assert ambiguous is None
+
+
+def test_low_technical_match_and_german_mandatory_never_exclude():
+    for country in ('Berlin, Germany','Bengaluru, India'):
+        j,why=normalize_for_profiles(job(title='Data Engineer',location=country,
+            desc='Gute Deutschkenntnisse sind erforderlich. Berufseinsteiger willkommen.'))
+        assert why=='accepted' and j.technical_match_score<.70
+        assert j.min_experience_years is None
+        assert 'German' in j.language_required
+
+
+def test_full_time_and_internship_are_eligible():
+    for title,contract in [('Data Engineer','Full-Time'),('Data Engineering Intern','Internship'),
+                           ('Data Engineering Working Student','Working Student')]:
+        j,why=normalize_for_profiles(job(title=title,location='Mumbai, India',
+            desc='Python and SQL',employment_type=contract))
+        assert why=='accepted', title
+        if title=='Data Engineer':
+            assert j.job_level=='Mid' and j.employment_type=='Full-time'
 
 
 def test_country_not_inferred_from_ambiguous_remote():
