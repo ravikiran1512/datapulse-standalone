@@ -6,7 +6,8 @@ import {Bookmark,BookmarkCheck,ArrowUpRight,Search,SlidersHorizontal,LayoutList,
 import {FilterDropdown} from '../components/FilterDropdown';
 import type {Job,SearchPage} from '../lib/types';
 
-const API=(process.env.NEXT_PUBLIC_API_BASE_URL||'').replace(/\/$/,'');
+// Same-origin endpoint avoids browser CORS errors when Render is unavailable or waking up.
+const API='';
 const germanyRegions=[['','All regions'],['Berlin','Berlin'],['Hamburg','Hamburg'],['Munich','Munich'],
  ['Frankfurt','Frankfurt'],['Cologne','Cologne'],['Magdeburg','Magdeburg'],['Leipzig','Leipzig'],
  ['Dresden','Dresden'],['Stuttgart','Stuttgart'],['Düsseldorf','Düsseldorf'],['Remote','Remote Germany']].map(([value,label])=>({value,label}));
@@ -74,7 +75,6 @@ export default function Page(){
  useEffect(()=>{const timer=setTimeout(()=>setDebounced(query),330);return()=>clearTimeout(timer)},[query]);
  useEffect(()=>setPage(1),[debounced,personas,country,region,mode,role,level,english,fitOnly,skills,order]);
  useEffect(()=>{
-  if(!API){setError('Set NEXT_PUBLIC_API_BASE_URL to connect your new DataPulse backend.');return}
   const controller=new AbortController();let mounted=true;
   const params=new URLSearchParams({page:String(page),limit:'20',english_only:String(english),
     min_match_score:fitOnly?'0.70':'0',order});
